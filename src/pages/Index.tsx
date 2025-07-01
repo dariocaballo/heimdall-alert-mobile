@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bell, Shield, History, Settings, AlertTriangle, CheckCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import AlarmHistory from "@/components/AlarmHistory";
-import AutoDeviceSetup from "@/components/AutoDeviceSetup";
+import RealDeviceSetup from "@/components/RealDeviceSetup";
 import StatusMonitor from "@/components/StatusMonitor";
 import AlarmScreen from "@/components/AlarmScreen";
 
@@ -325,7 +324,7 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="setup">
-              <AutoDeviceSetup onConnectionChange={setIsConnected} />
+              <RealDeviceSetup onConnectionChange={setIsConnected} />
             </TabsContent>
 
             <TabsContent value="history">
