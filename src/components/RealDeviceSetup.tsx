@@ -23,6 +23,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
   const [progress, setProgress] = useState(0);
   const [currentNetwork, setCurrentNetwork] = useState<string>("");
   const [shellyIP, setShellyIP] = useState("192.168.33.1");
+  const [isConnectedToShelly, setIsConnectedToShelly] = useState(false);
   const { toast } = useToast();
 
   const steps = [
@@ -39,14 +40,27 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         const status = await Network.getStatus();
         console.log('Network status:', status);
         
-        // Kolla om vi är anslutna till Shelly-nätverk
-        if (status.ssid && status.ssid.includes('ShellyPlusSmoke')) {
-          setCurrentNetwork(status.ssid);
-          setCurrentStep(2);
-          toast({
-            title: "Ansluten till brandvarnaren!",
-            description: `Ansluten till: ${status.ssid}`,
-          });
+        // Since ConnectionStatus doesn't have ssid, we'll detect Shelly connection differently
+        if (status.connected && status.connectionType === 'wifi') {
+          // Try to ping the Shelly device to detect if we're on its network
+          try {
+            const response = await fetch(`http://${shellyIP}/status`, {
+              method: 'GET',
+              timeout: 3000
+            } as any);
+            
+            if (response.ok) {
+              setIsConnectedToShelly(true);
+              setCurrentNetwork('ShellyPlusSmoke (detected)');
+              setCurrentStep(2);
+              toast({
+                title: "Ansluten till brandvarnaren!",
+                description: "Shelly-enhet upptäckt på nätverket",
+              });
+            }
+          } catch (error) {
+            setIsConnectedToShelly(false);
+          }
         }
       }
     };
@@ -54,15 +68,27 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
     checkNetworkStatus();
 
     // Lyssna på nätverksförändringar
-    const networkListener = Network.addListener('networkStatusChange', (status) => {
-      console.log('Network changed:', status);
-      setCurrentNetwork(status.ssid || '');
-    });
+    let networkListener: any;
+    const setupNetworkListener = async () => {
+      if (Capacitor.isNativePlatform()) {
+        networkListener = await Network.addListener('networkStatusChange', async (status) => {
+          console.log('Network changed:', status);
+          if (status.connected && status.connectionType === 'wifi') {
+            // Check if we can reach Shelly device
+            setTimeout(checkNetworkStatus, 1000);
+          }
+        });
+      }
+    };
+
+    setupNetworkListener();
 
     return () => {
-      networkListener.remove();
+      if (networkListener) {
+        networkListener.remove();
+      }
     };
-  }, []);
+  }, [shellyIP]);
 
   const simulateProgress = (callback: () => void, duration: number = 3000) => {
     setProgress(0);
@@ -93,12 +119,6 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
 
     try {
       // Skicka WiFi-konfiguration till Shelly
-      const wifiConfig = {
-        ssid: homeWifiSSID,
-        key: homeWifiPassword,
-        enable: true
-      };
-
       const wifiResponse = await fetch(`http://${shellyIP}/settings/ap`, {
         method: 'POST',
         headers: {
@@ -172,6 +192,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
       
       if (response.ok) {
         const status = await response.json();
+        setIsConnectedToShelly(true);
         toast({
           title: "Shelly funnen!",
           description: `Ansluten till ${status.device?.hostname || 'Shelly-enhet'}`,
@@ -179,6 +200,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         setCurrentStep(3);
       }
     } catch (error) {
+      setIsConnectedToShelly(false);
       toast({
         title: "Kan inte nå Shelly",
         description: "Kontrollera att du är ansluten till ShellyPlusSmoke-nätverket",
@@ -193,6 +215,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
     setHomeWifiSSID("");
     setHomeWifiPassword("");
     setCurrentNetwork("");
+    setIsConnectedToShelly(false);
     localStorage.removeItem('shelly_connected');
     localStorage.removeItem('wifi_configured');
     onConnectionChange(false);
@@ -229,13 +252,16 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
       )}
 
       {/* Current Network Status */}
-      {currentNetwork && (
+      {(currentNetwork || isConnectedToShelly) && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
               <Wifi className="w-4 h-4 text-green-600" />
               <span className="text-sm text-green-700">
-                Ansluten till: <strong>{currentNetwork}</strong>
+                {isConnectedToShelly ? 
+                  <strong>Shelly-enhet upptäckt på {shellyIP}</strong> :
+                  `Ansluten till: ${currentNetwork}`
+                }
               </span>
             </div>
           </CardContent>
