@@ -16,7 +16,6 @@ interface AlarmScreenProps {
 
 const AlarmScreen = ({ alarmData, onDismiss }: AlarmScreenProps) => {
   const [isFlashing, setIsFlashing] = useState(true);
-  const [audioPlaying, setAudioPlaying] = useState(false);
 
   useEffect(() => {
     // Starta vibration om tillgängligt
@@ -83,7 +82,7 @@ const AlarmScreen = ({ alarmData, onDismiss }: AlarmScreenProps) => {
             </div>
             
             <CardTitle className="text-2xl font-bold text-red-800 mb-2">
-              🚨 BRANDLARM!
+              🚨 ID-BEVAKARNA BRANDLARM!
             </CardTitle>
             
             <Badge variant="destructive" className="text-lg px-4 py-2">
@@ -155,7 +154,7 @@ const AlarmScreen = ({ alarmData, onDismiss }: AlarmScreenProps) => {
 
             {/* Tidsstämpel */}
             <div className="text-center text-xs text-gray-500 pt-4 border-t">
-              Larm mottaget: {alarmData.timestamp.toLocaleString('sv-SE')}
+              ID-Bevakarna larm mottaget: {alarmData.timestamp.toLocaleString('sv-SE')}
             </div>
           </CardContent>
         </Card>

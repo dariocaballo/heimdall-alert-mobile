@@ -1,12 +1,12 @@
 
-// Service Worker för pushnotiser
+// Service Worker för ID-Bevakarna pushnotiser
 self.addEventListener('push', function(event) {
   console.log('Push meddelande mottaget:', event);
   
   const options = {
     body: 'BRANDLARM AKTIVERAT! Kontrollera området omedelbart.',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+    badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
     vibrate: [500, 300, 500, 300, 500],
     data: {
       timestamp: Date.now(),
@@ -15,7 +15,7 @@ self.addEventListener('push', function(event) {
     actions: [
       {
         action: 'view',
-        title: 'Öppna App'
+        title: 'Öppna ID-Bevakarna'
       },
       {
         action: 'call',
@@ -27,7 +27,7 @@ self.addEventListener('push', function(event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification('🚨 BRANDLARM!', options)
+    self.registration.showNotification('🚨 ID-BEVAKARNA BRANDLARM!', options)
   );
 });
 

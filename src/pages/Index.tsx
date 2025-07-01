@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bell, Shield, History, Settings, AlertTriangle, CheckCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -145,18 +146,22 @@ const Index = () => {
         />
       )}
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        {/* Header */}
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+        {/* Header with Company Branding */}
         <div className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center justify-center w-10 h-10 bg-red-600 rounded-lg">
-                  <Shield className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900">BrandLarm Pro</h1>
-                  <p className="text-sm text-gray-500">Komplett brandskydd för hemmet</p>
+            <div className="flex items-center justify-between h-20">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
+                  <img 
+                    src="/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png" 
+                    alt="ID-Bevakarna Logo" 
+                    className="h-12 w-auto"
+                  />
+                  <div>
+                    <h1 className="text-2xl font-bold text-blue-600">ID-Bevakarna</h1>
+                    <p className="text-sm text-gray-600">Professionellt brandskydd för hemmet</p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -192,6 +197,19 @@ const Index = () => {
             </TabsList>
 
             <TabsContent value="dashboard" className="space-y-6">
+              {/* Company Info Banner */}
+              <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2 text-blue-800">
+                    <Shield className="w-5 h-5" />
+                    <span>Välkommen till ID-Bevakarna</span>
+                  </CardTitle>
+                  <CardDescription className="text-blue-600">
+                    Professionell brandbevakning med omedelbar varning vid fara. Vårt system övervakar ditt hem 24/7 och skickar direkta larm till din telefon.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
               {/* Status Overview */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>

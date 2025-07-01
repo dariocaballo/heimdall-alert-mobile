@@ -2,8 +2,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.03583b7247c24afab1adaa0916f6dfda',
-  appName: 'heimdall-alert-mobile',
+  appId: 'com.idbevakarna.app',
+  appName: 'ID-Bevakarna',
   webDir: 'dist',
   server: {
     url: 'https://03583b72-47c2-4afa-b1ad-aa0916f6dfda.lovableproject.com?forceHideBadge=true',
