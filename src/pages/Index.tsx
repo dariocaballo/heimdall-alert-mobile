@@ -1,11 +1,272 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState, useEffect } from "react";
+import { Bell, Shield, Wifi, History, Settings, AlertTriangle, CheckCircle, Phone } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import AlarmHistory from "@/components/AlarmHistory";
+import DeviceSetup from "@/components/DeviceSetup";
+import StatusMonitor from "@/components/StatusMonitor";
 
 const Index = () => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastAlarm, setLastAlarm] = useState<Date | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Check connection status on load
+    const checkConnection = () => {
+      const connected = localStorage.getItem('shelly_connected') === 'true';
+      setIsConnected(connected);
+    };
+    
+    checkConnection();
+    
+    // Listen for push notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'FIRE_ALARM') {
+          handleFireAlarm();
+        }
+      });
+    }
+  }, []);
+
+  const handleFireAlarm = () => {
+    setLastAlarm(new Date());
+    toast({
+      title: "🚨 BRANDLARM AKTIVERAT!",
+      description: "Omedelbar åtgärd krävs. Kontrollera området och kontakta nödtjänster vid behov.",
+      variant: "destructive",
+    });
+    
+    // Play alarm sound and vibrate if available
+    if ('vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 200]);
+    }
+  };
+
+  const testAlarm = async () => {
+    setIsTesting(true);
+    try {
+      const response = await fetch('https://us-central1-id-bevakarna.cloudfunctions.net/sendTestAlarm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId: 'test_device',
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Test genomfört",
+          description: "Testlarm skickat framgångsrikt. Du bör få en pushnotis inom kort.",
+        });
+      } else {
+        throw new Error('Failed to send test alarm');
+      }
+    } catch (error) {
+      toast({
+        title: "Fel vid test",
+        description: "Kunde inte skicka testlarm. Kontrollera internetanslutningen.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-center w-10 h-10 bg-red-600 rounded-lg">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">BrandLarm Pro</h1>
+                <p className="text-sm text-gray-500">Shelly Plus Smoke Monitor</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant={isConnected ? "default" : "secondary"} className="flex items-center space-x-1">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span>{isConnected ? 'Ansluten' : 'Ej ansluten'}</span>
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
+              <Shield className="w-4 h-4" />
+              <span>Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="setup" className="flex items-center space-x-2">
+              <Wifi className="w-4 h-4" />
+              <span>Installation</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center space-x-2">
+              <History className="w-4 h-4" />
+              <span>Historik</span>
+            </TabsTrigger>
+            <TabsTrigger value="status" className="flex items-center space-x-2">
+              <Settings className="w-4 h-4" />
+              <span>Status</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            {/* Status Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">Systemstatus</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-3">
+                    {isConnected ? (
+                      <>
+                        <CheckCircle className="w-8 h-8 text-green-500" />
+                        <div>
+                          <p className="text-lg font-semibold text-green-600">Aktiv</p>
+                          <p className="text-sm text-gray-500">Brandvarnare ansluten</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-8 h-8 text-orange-500" />
+                        <div>
+                          <p className="text-lg font-semibold text-orange-600">Ej ansluten</p>
+                          <p className="text-sm text-gray-500">Konfiguration krävs</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">Senaste larm</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-3">
+                    <Bell className="w-8 h-8 text-gray-400" />
+                    <div>
+                      {lastAlarm ? (
+                        <>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {lastAlarm.toLocaleDateString('sv-SE')}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {lastAlarm.toLocaleTimeString('sv-SE')}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-semibold text-gray-900">Inget larm</p>
+                          <p className="text-sm text-gray-500">Allt fungerar normalt</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">Nödnummer</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-3">
+                    <Phone className="w-8 h-8 text-red-500" />
+                    <div>
+                      <p className="text-lg font-semibold text-red-600">112</p>
+                      <p className="text-sm text-gray-500">SOS Alarm</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Test Alarm Button */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5" />
+                  <span>Testa larm</span>
+                </CardTitle>
+                <CardDescription>
+                  Verifiera att pushnotiser fungerar korrekt genom att skicka ett testlarm
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={testAlarm}
+                  disabled={isTesting}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  size="lg"
+                >
+                  {isTesting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Skickar testlarm...
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-4 h-4 mr-2" />
+                      🔔 Testa larm
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Safety Information */}
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="text-orange-800 flex items-center space-x-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span>Säkerhetsinformation</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-orange-700">
+                <ul className="space-y-2 text-sm">
+                  <li>• Vid verkligt brandlarm - ring 112 omedelbart</li>
+                  <li>• Kontrollera att alla brandvarnare fungerar månadsvis</li>
+                  <li>• Håll utrymningsvägar fria från hinder</li>
+                  <li>• Se till att alla i familjen vet var brandvarnarna finns</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="setup">
+            <DeviceSetup onConnectionChange={setIsConnected} />
+          </TabsContent>
+
+          <TabsContent value="history">
+            <AlarmHistory />
+          </TabsContent>
+
+          <TabsContent value="status">
+            <StatusMonitor />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
