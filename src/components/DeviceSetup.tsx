@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Wifi, Smartphone, Router, CheckCircle, ArrowRight, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -295,7 +294,7 @@ const DeviceSetup = ({ onConnectionChange }: DeviceSetupProps) => {
                       </li>
                       <li className="flex items-start space-x-2">
                         <span className="text-red-500 font-bold">6.</span>
-                        <span>Body: {"{"}"deviceId": "{{device_id}}", "timestamp": "{{timestamp}}"{"}"}</span>
+                        <span>Body: {'"{"deviceId": "{{device_id}}", "timestamp": "{{timestamp}}"}"'}</span>
                       </li>
                     </ul>
                   </div>
