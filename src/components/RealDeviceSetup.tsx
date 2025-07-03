@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Network } from '@capacitor/network';
 import { Capacitor } from '@capacitor/core';
+import { ShellyConnectionHelper } from "./ShellyConnectionHelper";
+import { ShellyWiFiConfigurator } from "./ShellyWiFiConfigurator";
 
 interface RealDeviceSetupProps {
   onConnectionChange: (connected: boolean) => void;
@@ -17,67 +18,71 @@ interface RealDeviceSetupProps {
 
 const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [homeWifiSSID, setHomeWifiSSID] = useState("");
-  const [homeWifiPassword, setHomeWifiPassword] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [currentNetwork, setCurrentNetwork] = useState<string>("");
   const [shellyIP, setShellyIP] = useState("192.168.33.1");
   const [isConnectedToShelly, setIsConnectedToShelly] = useState(false);
+  const [currentNetwork, setCurrentNetwork] = useState<string>("");
   const { toast } = useToast();
 
   const steps = [
     { id: 1, title: "Förbered brandvarnaren", description: "Aktivera konfigurationsläge" },
-    { id: 2, title: "Anslut till Shelly", description: "Automatisk anslutning till brandvarnaren" },
+    { id: 2, title: "Anslut till Shelly", description: "Testa anslutning till brandvarnaren" },
     { id: 3, title: "Konfigurera WiFi", description: "Ange ditt hem-WiFi" },
-    { id: 4, title: "Konfigurerar automatiskt", description: "Ställer in alarmfunktionen" }
+    { id: 4, title: "Klart!", description: "Brandvarnaren är ansluten" }
   ];
 
   useEffect(() => {
-    // Övervaka nätverksförändringar
-    const checkNetworkStatus = async () => {
-      if (Capacitor.isNativePlatform()) {
-        const status = await Network.getStatus();
-        console.log('Network status:', status);
-        
-        // Since ConnectionStatus doesn't have ssid, we'll detect Shelly connection differently
-        if (status.connected && status.connectionType === 'wifi') {
-          // Try to ping the Shelly device to detect if we're on its network
-          try {
-            const response = await fetch(`http://${shellyIP}/status`, {
-              method: 'GET',
-              timeout: 3000
-            } as any);
-            
-            if (response.ok) {
-              setIsConnectedToShelly(true);
-              setCurrentNetwork('ShellyPlusSmoke (detected)');
-              setCurrentStep(2);
-              toast({
-                title: "Ansluten till brandvarnaren!",
-                description: "Shelly-enhet upptäckt på nätverket",
-              });
-            }
-          } catch (error) {
-            setIsConnectedToShelly(false);
-          }
-        }
+    // Kontrollera befintlig anslutning vid start
+    const checkExistingConnection = () => {
+      const connected = localStorage.getItem('shelly_connected') === 'true';
+      if (connected) {
+        setCurrentStep(4);
+        onConnectionChange(true);
       }
     };
+    
+    checkExistingConnection();
 
-    checkNetworkStatus();
-
-    // Lyssna på nätverksförändringar
+    // Lyssna på nätverksförändringar endast på mobila enheter
     let networkListener: any;
     const setupNetworkListener = async () => {
       if (Capacitor.isNativePlatform()) {
-        networkListener = await Network.addListener('networkStatusChange', async (status) => {
-          console.log('Network changed:', status);
-          if (status.connected && status.connectionType === 'wifi') {
-            // Check if we can reach Shelly device
-            setTimeout(checkNetworkStatus, 1000);
-          }
-        });
+        try {
+          const status = await Network.getStatus();
+          console.log('Initial network status:', status);
+          
+          networkListener = await Network.addListener('networkStatusChange', async (status) => {
+            console.log('Network changed:', status);
+            if (status.connected && status.connectionType === 'wifi') {
+              // Ge lite tid för nätverket att etableras
+              setTimeout(async () => {
+                // Försök att upptäcka om vi är på Shelly-nätverket
+                try {
+                  const response = await fetch(`http://${shellyIP}/status`, {
+                    method: 'GET',
+                    timeout: 3000
+                  } as any);
+                  
+                  if (response.ok) {
+                    setIsConnectedToShelly(true);
+                    setCurrentNetwork('ShellyPlusSmoke (upptäckt)');
+                    if (currentStep === 1) {
+                      setCurrentStep(2);
+                      toast({
+                        title: "✅ Shelly-nätverk upptäckt!",
+                        description: "Du kan nu fortsätta till nästa steg.",
+                      });
+                    }
+                  }
+                } catch (error) {
+                  // Ignorera fel - användaren kan manuellt testa anslutningen
+                  console.log('Auto-detection failed, user can test manually');
+                }
+              }, 2000);
+            }
+          });
+        } catch (error) {
+          console.error('Network listener setup failed:', error);
+        }
       }
     };
 
@@ -88,140 +93,38 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         networkListener.remove();
       }
     };
-  }, [shellyIP]);
+  }, [currentStep, shellyIP, onConnectionChange]);
 
-  const simulateProgress = (callback: () => void, duration: number = 3000) => {
-    setProgress(0);
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          callback();
-          return 100;
-        }
-        return prev + 5;
-      });
-    }, duration / 20);
+  const handleShellyConnectionSuccess = () => {
+    setIsConnectedToShelly(true);
+    setCurrentStep(3);
   };
 
-  const configureShellyWiFi = async () => {
-    if (!homeWifiSSID || !homeWifiPassword) {
-      toast({
-        title: "Saknad information",
-        description: "Vänligen ange både WiFi-namn och lösenord",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleShellyConnectionError = (error: string) => {
+    setIsConnectedToShelly(false);
+    console.error('Shelly connection error:', error);
+  };
 
-    setIsConnecting(true);
+  const handleConfigurationComplete = () => {
     setCurrentStep(4);
-
-    try {
-      // Skicka WiFi-konfiguration till Shelly
-      const wifiResponse = await fetch(`http://${shellyIP}/settings/ap`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          'wifi_ap.ssid': homeWifiSSID,
-          'wifi_ap.key': homeWifiPassword,
-          'wifi_ap.enable': 'true'
-        })
-      });
-
-      if (!wifiResponse.ok) {
-        throw new Error('WiFi-konfiguration misslyckades');
-      }
-
-      // Konfigurera HTTP POST för larm
-      const alarmConfig = await fetch(`http://${shellyIP}/settings/actions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          'actions.smoke_detected.enabled': 'true',
-          'actions.smoke_detected.urls[]': 'https://us-central1-id-bevakarna.cloudfunctions.net/sendTestAlarm',
-          'actions.smoke_detected.method': 'POST',
-          'actions.smoke_detected.body': JSON.stringify({
-            deviceId: 'Shelly Plus Smoke',
-            timestamp: '${timestamp}',
-            alarm_type: 'smoke_detected'
-          })
-        })
-      });
-
-      if (!alarmConfig.ok) {
-        throw new Error('Larm-konfiguration misslyckades');
-      }
-
-      // Spara konfiguration
-      localStorage.setItem('shelly_connected', 'true');
-      localStorage.setItem('wifi_configured', 'true');
-      localStorage.setItem('home_wifi_ssid', homeWifiSSID);
-      localStorage.setItem('shelly_ip', shellyIP);
-
-      simulateProgress(() => {
-        onConnectionChange(true);
-        setIsConnecting(false);
-        toast({
-          title: "✅ Installation klar!",
-          description: "Din brandvarnare är nu ansluten och konfigurerad för larm.",
-        });
-      }, 2000);
-
-    } catch (error) {
-      console.error('Konfiguration misslyckades:', error);
-      setIsConnecting(false);
-      toast({
-        title: "Konfiguration misslyckades",
-        description: `Fel: ${error instanceof Error ? error.message : 'Okänt fel'}`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const testShellyConnection = async () => {
-    try {
-      const response = await fetch(`http://${shellyIP}/status`, {
-        method: 'GET',
-        timeout: 5000
-      } as any);
-      
-      if (response.ok) {
-        const status = await response.json();
-        setIsConnectedToShelly(true);
-        toast({
-          title: "Shelly funnen!",
-          description: `Ansluten till ${status.device?.hostname || 'Shelly-enhet'}`,
-        });
-        setCurrentStep(3);
-      }
-    } catch (error) {
-      setIsConnectedToShelly(false);
-      toast({
-        title: "Kan inte nå Shelly",
-        description: "Kontrollera att du är ansluten till ShellyPlusSmoke-nätverket",
-        variant: "destructive",
-      });
-    }
+    onConnectionChange(true);
   };
 
   const resetSetup = () => {
     setCurrentStep(1);
-    setProgress(0);
-    setHomeWifiSSID("");
-    setHomeWifiPassword("");
-    setCurrentNetwork("");
     setIsConnectedToShelly(false);
+    setCurrentNetwork("");
     localStorage.removeItem('shelly_connected');
     localStorage.removeItem('wifi_configured');
+    localStorage.removeItem('home_wifi_ssid');
     onConnectionChange(false);
+    
+    toast({
+      title: "Setup återställd",
+      description: "Du kan nu börja installationen från början.",
+    });
   };
 
-  // Kolla om vi kör som nativ app
   const isNativeApp = Capacitor.isNativePlatform();
 
   return (
@@ -230,12 +133,12 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 text-red-800">
             <Shield className="w-5 h-5" />
-            <span>{isNativeApp ? 'Verklig brandvarnare-installation' : 'Mobil app krävs för WiFi'}</span>
+            <span>Anslut din Shelly Plus Smoke brandvarnare</span>
           </CardTitle>
           <CardDescription className="text-red-600">
             {isNativeApp ? 
-              'Följ instruktionerna nedan - appen gör resten automatiskt' :
-              'För att ansluta till WiFi behöver appen köras som mobil app'
+              'Följ stegen nedan - appen gör resten automatiskt' :
+              'Denna funktion kräver att appen körs som mobilapp'
             }
           </CardDescription>
         </CardHeader>
@@ -245,13 +148,13 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Mobilapp krävs:</strong> WiFi-funktionerna fungerar endast i den mobila versionen. 
-            Följ instruktionerna nedan för att installera appen på din telefon.
+            <strong>Mobilapp krävs:</strong> För att ansluta till Shelly-enheter behöver appen köras som mobilapp. 
+            Öppna appen på din telefon för att fortsätta med installationen.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Current Network Status */}
+      {/* Nuvarande nätverksstatus */}
       {(currentNetwork || isConnectedToShelly) && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4">
@@ -259,7 +162,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
               <Wifi className="w-4 h-4 text-green-600" />
               <span className="text-sm text-green-700">
                 {isConnectedToShelly ? 
-                  <strong>Shelly-enhet upptäckt på {shellyIP}</strong> :
+                  <strong>✅ Shelly-enhet funnen på {shellyIP}</strong> :
                   `Ansluten till: ${currentNetwork}`
                 }
               </span>
@@ -268,7 +171,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         </Card>
       )}
 
-      {/* Progress Steps */}
+      {/* Steg-indikator */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {steps.map((step) => (
           <Card key={step.id} className={`${
@@ -292,40 +195,57 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         ))}
       </div>
 
-      {/* Step Content */}
+      {/* Steg-innehåll */}
       <div className="space-y-6">
         {currentStep === 1 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Steg 1: Förbered brandvarnaren</CardTitle>
+              <CardDescription>
+                Sätt brandvarnaren i konfigurationsläge så att appen kan ansluta till den
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <Smartphone className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Instruktion:</strong> Håll inne knappen på brandvarnaren i 10 sekunder tills den blinkar blått.
+                  <strong>Gör så här:</strong>
+                  <br />
+                  1. Håll inne knappen på brandvarnaren i <strong>10 sekunder</strong>
+                  <br />
+                  2. Vänta tills den blinkar <strong>blått</strong>
+                  <br />
+                  3. När den blinkar blått skapar den ett WiFi-nätverk
                 </AlertDescription>
               </Alert>
               
-              <div className="space-y-3">
-                <p className="text-sm text-gray-600">När brandvarnaren blinkar blått:</p>
-                <ul className="space-y-2 text-sm">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-2">När brandvarnaren blinkar blått:</h4>
+                <ul className="space-y-2 text-sm text-blue-700">
                   <li className="flex items-start space-x-2">
-                    <span className="text-red-500 font-bold">✓</span>
-                    <span>Brandvarnaren skapar ett WiFi-nätverk som heter "ShellyPlusSmoke-XXXXXX"</span>
+                    <span className="text-blue-500 font-bold">1.</span>
+                    <span>Gå till telefonens <strong>WiFi-inställningar</strong></span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-red-500 font-bold">✓</span>
-                    <span>Anslut din telefon till detta nätverk</span>
+                    <span className="text-blue-500 font-bold">2.</span>
+                    <span>Leta efter nätverket <strong>"ShellyPlusSmoke-XXXXXX"</strong></span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-red-500 font-bold">✓</span>
+                    <span className="text-blue-500 font-bold">3.</span>
+                    <span>Anslut till detta nätverk (inget lösenord krävs)</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-blue-500 font-bold">4.</span>
                     <span>Kom tillbaka till appen</span>
                   </li>
                 </ul>
               </div>
               
-              <Button onClick={() => setCurrentStep(2)} className="w-full bg-red-600 hover:bg-red-700">
+              <Button 
+                onClick={() => setCurrentStep(2)} 
+                className="w-full bg-red-600 hover:bg-red-700"
+                size="lg"
+              >
                 Jag har anslutit till ShellyPlusSmoke-nätverket
               </Button>
             </CardContent>
@@ -335,7 +255,10 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         {currentStep === 2 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Steg 2: Testa anslutning till Shelly</CardTitle>
+              <CardTitle className="text-lg">Steg 2: Testa anslutning till brandvarnaren</CardTitle>
+              <CardDescription>
+                Nu testar vi om appen kan kommunicera med din brandvarnare
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-4">
@@ -348,15 +271,16 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
                     onChange={(e) => setShellyIP(e.target.value)}
                     placeholder="192.168.33.1"
                   />
+                  <p className="text-xs text-gray-500">
+                    Vanligtvis 192.168.33.1 för Shelly-enheter
+                  </p>
                 </div>
                 
-                <Button 
-                  onClick={testShellyConnection}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  <Wifi className="w-4 h-4 mr-2" />
-                  Testa anslutning till Shelly
-                </Button>
+                <ShellyConnectionHelper
+                  shellyIP={shellyIP}
+                  onConnectionSuccess={handleShellyConnectionSuccess}
+                  onConnectionError={handleShellyConnectionError}
+                />
               </div>
             </CardContent>
           </Card>
@@ -366,92 +290,63 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Steg 3: Konfigurera hem-WiFi</CardTitle>
+              <CardDescription>
+                Nu skickar vi dina WiFi-uppgifter till brandvarnaren så den kan ansluta till ditt hemma-nätverk
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="wifi-ssid">Ditt hem-WiFi namn (SSID)</Label>
-                  <Input
-                    id="wifi-ssid"
-                    type="text"
-                    placeholder="Mitt_WiFi_Namn"
-                    value={homeWifiSSID}
-                    onChange={(e) => setHomeWifiSSID(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="wifi-password">WiFi-lösenord</Label>
-                  <Input
-                    id="wifi-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={homeWifiPassword}
-                    onChange={(e) => setHomeWifiPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <Alert>
-                <Shield className="h-4 w-4" />
-                <AlertDescription>
-                  Detta skickar WiFi-uppgifterna direkt till brandvarnaren och konfigurerar larmfunktionen automatiskt.
-                </AlertDescription>
-              </Alert>
-              
-              <Button 
-                onClick={configureShellyWiFi}
-                disabled={!homeWifiSSID || !homeWifiPassword || isConnecting}
-                className="w-full bg-red-600 hover:bg-red-700"
-                size="lg"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Konfigurerar...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Konfigurera brandvarnaren
-                  </>
-                )}
-              </Button>
+            <CardContent>
+              <ShellyWiFiConfigurator
+                shellyIP={shellyIP}
+                onConfigurationComplete={handleConfigurationComplete}
+              />
             </CardContent>
           </Card>
         )}
 
         {currentStep === 4 && (
-          <Card>
+          <Card className="border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-lg">Steg 4: Konfigurerar automatiskt...</CardTitle>
+              <CardTitle className="text-lg text-green-800">✅ Installation klar!</CardTitle>
+              <CardDescription className="text-green-600">
+                Din brandvarnare är nu ansluten och konfigurerad
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Progress value={progress} className="w-full" />
-                
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500" />
-                    <span className="text-sm">Ansluter brandvarnaren till ditt hem-WiFi...</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Zap className="w-4 h-4 text-orange-500" />
-                    <span className="text-sm">Konfigurerar HTTP POST för larm...</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Shield className="w-4 h-4 text-green-500" />
-                    <span className="text-sm">Testar anslutning till Firebase...</span>
-                  </div>
-                </div>
+              <div className="bg-white p-4 rounded-lg border border-green-200">
+                <h4 className="font-semibold text-green-800 mb-2">Vad händer nu:</h4>
+                <ul className="space-y-2 text-sm text-green-700">
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Brandvarnaren är ansluten till ditt hem-WiFi</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Larmfunktionen är aktiverad</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Du får pushnotiser vid brandlarm</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Testa gärna systemet med knappen på Dashboard</span>
+                  </li>
+                </ul>
               </div>
+              
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Tips:</strong> Gå till Dashboard och tryck på "Testa komplett larm" för att kontrollera att allt fungerar som det ska.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Reset button */}
-      {currentStep > 1 && !isConnecting && (
+      {/* Återställningsknapp */}
+      {currentStep > 1 && (
         <Card className="border-gray-200">
           <CardContent className="p-4">
             <Button 
