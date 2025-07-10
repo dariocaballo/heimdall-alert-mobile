@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alarms: {
+        Row: {
+          battery: boolean | null
+          id: string
+          raw_data: Json | null
+          smoke: boolean | null
+          temp: number | null
+          timestamp: string | null
+        }
+        Insert: {
+          battery?: boolean | null
+          id?: string
+          raw_data?: Json | null
+          smoke?: boolean | null
+          temp?: number | null
+          timestamp?: string | null
+        }
+        Update: {
+          battery?: boolean | null
+          id?: string
+          raw_data?: Json | null
+          smoke?: boolean | null
+          temp?: number | null
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
+      user_codes: {
+        Row: {
+          created_at: string | null
+          device_id: string | null
+          id: string
+          user_code: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_id?: string | null
+          id?: string
+          user_code: string
+        }
+        Update: {
+          created_at?: string | null
+          device_id?: string | null
+          id?: string
+          user_code?: string
+        }
+        Relationships: []
+      }
+      user_devices: {
+        Row: {
+          created_at: string | null
+          device_id: string
+          id: string
+          user_code: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_id: string
+          id?: string
+          user_code: string
+        }
+        Update: {
+          created_at?: string | null
+          device_id?: string
+          id?: string
+          user_code?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

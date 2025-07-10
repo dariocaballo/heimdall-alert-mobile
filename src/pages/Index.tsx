@@ -10,6 +10,9 @@ import AlarmHistory from "@/components/AlarmHistory";
 import RealDeviceSetup from "@/components/RealDeviceSetup";
 import StatusMonitor from "@/components/StatusMonitor";
 import AlarmScreen from "@/components/AlarmScreen";
+import CodeLogin from "@/components/CodeLogin";
+import DeviceList from "@/components/DeviceList";
+import { useFirebaseToken } from "@/hooks/useFirebaseToken";
 
 interface AlarmData {
   timestamp: Date;
@@ -18,21 +21,44 @@ interface AlarmData {
 }
 
 const Index = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userDevices, setUserDevices] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [lastAlarm, setLastAlarm] = useState<Date | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [showAlarmScreen, setShowAlarmScreen] = useState(false);
   const [currentAlarm, setCurrentAlarm] = useState<AlarmData | null>(null);
   const { toast } = useToast();
+  const { requestPermission, saveFcmTokenToSupabase } = useFirebaseToken();
 
   useEffect(() => {
-    // Kontrollera anslutningsstatus vid start
-    const checkConnection = () => {
-      const connected = localStorage.getItem('shelly_connected') === 'true';
-      setIsConnected(connected);
+    // Check if user is already authenticated
+    const checkAuthentication = () => {
+      const userCode = localStorage.getItem('user_code');
+      const devices = localStorage.getItem('user_devices');
+      
+      if (userCode && devices) {
+        try {
+          const parsedDevices = JSON.parse(devices);
+          setUserDevices(parsedDevices);
+          setIsAuthenticated(true);
+          setIsConnected(true);
+          
+          // Request FCM permission for authenticated users
+          requestPermission().then(token => {
+            if (token) {
+              saveFcmTokenToSupabase(token, userCode);
+            }
+          });
+        } catch (error) {
+          console.error('Error parsing stored devices:', error);
+          localStorage.removeItem('user_code');
+          localStorage.removeItem('user_devices');
+        }
+      }
     };
     
-    checkConnection();
+    checkAuthentication();
     
     // Lyssna på push notifications och meddelanden
     if ('serviceWorker' in navigator) {
@@ -59,6 +85,28 @@ const Index = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
+
+  const handleLoginSuccess = (devices: string[]) => {
+    setUserDevices(devices);
+    setIsAuthenticated(true);
+    setIsConnected(true);
+    
+    // Request FCM permission after successful login
+    const userCode = localStorage.getItem('user_code');
+    if (userCode) {
+      requestPermission().then(token => {
+        if (token) {
+          saveFcmTokenToSupabase(token, userCode);
+        }
+      });
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUserDevices([]);
+    setIsConnected(false);
+  };
 
   const handleFireAlarm = (data?: any) => {
     const alarmData: AlarmData = {
@@ -136,6 +184,12 @@ const Index = () => {
     });
   };
 
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <CodeLogin onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show device list if authenticated
   return (
     <>
       {/* Larmskärm - visas över allt annat */}
@@ -146,215 +200,7 @@ const Index = () => {
         />
       )}
 
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
-        {/* Header with Company Branding */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-20">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src="/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png" 
-                    alt="ID-Bevakarna Logo" 
-                    className="h-12 w-auto"
-                  />
-                  <div>
-                    <h1 className="text-2xl font-bold text-blue-600">ID-Bevakarna</h1>
-                    <p className="text-sm text-gray-600">Professionellt brandskydd för hemmet</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Badge variant={isConnected ? "default" : "secondary"} className="flex items-center space-x-1">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
-                  <span>{isConnected ? 'Ansluten' : 'Ej ansluten'}</span>
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="dashboard" className="flex items-center space-x-2">
-                <Shield className="w-4 h-4" />
-                <span>Dashboard</span>
-              </TabsTrigger>
-              <TabsTrigger value="setup" className="flex items-center space-x-2">
-                <Settings className="w-4 h-4" />
-                <span>Installation</span>
-              </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center space-x-2">
-                <History className="w-4 h-4" />
-                <span>Historik</span>
-              </TabsTrigger>
-              <TabsTrigger value="status" className="flex items-center space-x-2">
-                <Settings className="w-4 h-4" />
-                <span>Status</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="dashboard" className="space-y-6">
-              {/* Company Info Banner */}
-              <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-blue-800">
-                    <Shield className="w-5 h-5" />
-                    <span>Välkommen till ID-Bevakarna</span>
-                  </CardTitle>
-                  <CardDescription className="text-blue-600">
-                    Professionell brandbevakning med omedelbar varning vid fara. Vårt system övervakar ditt hem 24/7 och skickar direkta larm till din telefon.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              {/* Status Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Systemstatus</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-3">
-                      {isConnected ? (
-                        <>
-                          <CheckCircle className="w-8 h-8 text-green-500" />
-                          <div>
-                            <p className="text-lg font-semibold text-green-600">Aktiv</p>
-                            <p className="text-sm text-gray-500">Brandvarnare ansluten</p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <AlertTriangle className="w-8 h-8 text-orange-500" />
-                          <div>
-                            <p className="text-lg font-semibold text-orange-600">Ej ansluten</p>
-                            <p className="text-sm text-gray-500">Gå till Installation</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Senaste larm</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-3">
-                      <Bell className="w-8 h-8 text-gray-400" />
-                      <div>
-                        {lastAlarm ? (
-                          <>
-                            <p className="text-lg font-semibold text-gray-900">
-                              {lastAlarm.toLocaleDateString('sv-SE')}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {lastAlarm.toLocaleTimeString('sv-SE')}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-lg font-semibold text-gray-900">Inget larm</p>
-                            <p className="text-sm text-gray-500">Allt fungerar normalt</p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Nödnummer</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-3">
-                      <Phone className="w-8 h-8 text-red-500" />
-                      <div>
-                        <Button 
-                          variant="link" 
-                          className="p-0 h-auto text-lg font-semibold text-red-600"
-                          onClick={() => window.location.href = 'tel:112'}
-                        >
-                          112
-                        </Button>
-                        <p className="text-sm text-gray-500">SOS Alarm</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Test Alarm Button */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Bell className="w-5 h-5" />
-                    <span>Testa larm</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Verifiera att hela systemet fungerar - från brandvarnare till pushnotis och larmskärm
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    onClick={testAlarm}
-                    disabled={isTesting}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white"
-                    size="lg"
-                  >
-                    {isTesting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                        Skickar testlarm...
-                      </>
-                    ) : (
-                      <>
-                        <Bell className="w-4 h-4 mr-2" />
-                        🔔 Testa komplett larm
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Safety Information */}
-              <Card className="border-orange-200 bg-orange-50">
-                <CardHeader>
-                  <CardTitle className="text-orange-800 flex items-center space-x-2">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span>Säkerhetsinformation</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-orange-700">
-                  <ul className="space-y-2 text-sm">
-                    <li>• Vid verkligt brandlarm - ring 112 omedelbart</li>
-                    <li>• Testa larmet månadsvis med knappen ovan</li>
-                    <li>• Håll utrymningsvägar fria från hinder</li>
-                    <li>• Kontrollera att alla i familjen vet hur appen fungerar</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="setup">
-              <RealDeviceSetup onConnectionChange={setIsConnected} />
-            </TabsContent>
-
-            <TabsContent value="history">
-              <AlarmHistory />
-            </TabsContent>
-
-            <TabsContent value="status">
-              <StatusMonitor />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+      <DeviceList devices={userDevices} onLogout={handleLogout} />
     </>
   );
 };
