@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, Loader } from "lucide-react";
 
 interface CodeLoginProps {
-  onLoginSuccess: (devices: string[]) => void;
+  onLoginSuccess: (devices: string[], userCode: string) => void;
 }
 
 const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
@@ -16,10 +16,11 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
   const { toast } = useToast();
 
   const verifyCode = async () => {
-    if (code.length !== 6) {
+    // Validate 6-digit numeric code
+    if (!/^\d{6}$/.test(code)) {
       toast({
         title: "Felaktig kod",
-        description: "Koden måste vara 6 tecken lång",
+        description: "Koden måste vara exakt 6 siffror",
         variant: "destructive",
       });
       return;
@@ -28,7 +29,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('verify_user_code', {
-        body: { user_code: code.toUpperCase() }
+        body: { code: code }
       });
 
       if (error) {
@@ -41,21 +42,21 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
         return;
       }
 
-      if (data?.success && data?.devices) {
-        // Save devices to localStorage
-        localStorage.setItem('user_code', code.toUpperCase());
-        localStorage.setItem('user_devices', JSON.stringify(data.devices));
+      if (data?.success && data?.device_ids) {
+        // Save user info to localStorage
+        localStorage.setItem('user_code', code);
+        localStorage.setItem('user_devices', JSON.stringify(data.device_ids));
         
         toast({
           title: "Inloggning lyckad!",
-          description: `${data.devices.length} brandvarnare hittade`,
+          description: `${data.device_ids.length} brandvarnare hittade`,
         });
         
-        onLoginSuccess(data.devices);
+        onLoginSuccess(data.device_ids, code);
       } else {
         toast({
           title: "Ogiltig kod",
-          description: "Koden kunde inte hittas. Kontrollera och försök igen.",
+          description: data?.error || "Koden kunde inte hittas. Kontrollera och försök igen.",
           variant: "destructive",
         });
       }
@@ -89,29 +90,32 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
           <div className="space-y-4">
             <div className="text-center">
               <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Användarens kod
+                Din 6-siffriga kod
               </label>
-              <InputOTP 
-                maxLength={6} 
-                value={code} 
-                onChange={setCode}
-                className="justify-center"
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
+              <Input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={code}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, ''); // Only digits
+                  if (value.length <= 6) {
+                    setCode(value);
+                  }
+                }}
+                placeholder="123456"
+                className="text-center text-2xl font-mono tracking-widest"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Endast siffror tillåtna
+              </p>
             </div>
           </div>
           
           <Button 
             onClick={verifyCode}
-            disabled={code.length !== 6 || isLoading}
+            disabled={!/^\d{6}$/.test(code) || isLoading}
             className="w-full"
           >
             {isLoading ? (

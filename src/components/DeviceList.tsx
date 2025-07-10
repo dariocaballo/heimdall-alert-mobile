@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle, Wifi, WifiOff, Battery, Thermometer, AlarmSmoke, LogOut } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertTriangle, CheckCircle, Wifi, WifiOff, Battery, Thermometer, AlarmSmoke, LogOut, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,12 +19,17 @@ interface DeviceStatus {
 
 interface DeviceListProps {
   devices: string[];
+  userCode: string;
   onLogout: () => void;
+  onDevicesUpdate: (devices: string[]) => void;
 }
 
-const DeviceList = ({ devices, onLogout }: DeviceListProps) => {
+const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceListProps) => {
   const [deviceStatuses, setDeviceStatuses] = useState<DeviceStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [newDeviceId, setNewDeviceId] = useState("");
+  const [isAddingDevice, setIsAddingDevice] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const { toast } = useToast();
 
   const fetchDeviceStatuses = async () => {
@@ -102,6 +109,67 @@ const DeviceList = ({ devices, onLogout }: DeviceListProps) => {
     onLogout();
   };
 
+  const addDevice = async () => {
+    if (!newDeviceId.trim()) {
+      toast({
+        title: "Felaktig enhet",
+        description: "Ange ett giltigt enhets-ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingDevice(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('add_device', {
+        body: { 
+          user_code: userCode, 
+          device_id: newDeviceId.trim() 
+        }
+      });
+
+      if (error) {
+        console.error('Error adding device:', error);
+        toast({
+          title: "Fel vid tillägg",
+          description: "Kunde inte lägga till enheten. Försök igen.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.success) {
+        const updatedDevices = [...devices, newDeviceId.trim()];
+        localStorage.setItem('user_devices', JSON.stringify(updatedDevices));
+        onDevicesUpdate(updatedDevices);
+        
+        setNewDeviceId("");
+        setShowAddDialog(false);
+        fetchDeviceStatuses();
+        
+        toast({
+          title: "Enhet tillagd!",
+          description: "Brandvarnaren har lagts till i ditt konto",
+        });
+      } else {
+        toast({
+          title: "Fel vid tillägg",
+          description: data?.error || "Kunde inte lägga till enheten",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Add device error:', error);
+      toast({
+        title: "Nätverksfel",
+        description: "Kunde inte ansluta till servern",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingDevice(false);
+    }
+  };
+
   const getDeviceName = (deviceId: string) => {
     const index = devices.indexOf(deviceId) + 1;
     return `Brandvarnare ${index}`;
@@ -154,9 +222,62 @@ const DeviceList = ({ devices, onLogout }: DeviceListProps) => {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Mina brandvarnare</h2>
-          <p className="text-gray-600">{devices.length} enheter registrerade</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Mina brandvarnare</h2>
+            <p className="text-gray-600">{devices.length} enheter registrerade</p>
+          </div>
+          
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center space-x-2">
+                <Plus className="w-4 h-4" />
+                <span>Lägg till brandvarnare</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Lägg till ny brandvarnare</DialogTitle>
+                <DialogDescription>
+                  Ange enhets-ID för din Shelly Smoke brandvarnare
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Enhets-ID
+                  </label>
+                  <Input
+                    value={newDeviceId}
+                    onChange={(e) => setNewDeviceId(e.target.value)}
+                    placeholder="t.ex. shelly-smoke-001"
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Hittar du ID:t på enhetens etikett eller i Shelly-appen
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={addDevice}
+                    disabled={!newDeviceId.trim() || isAddingDevice}
+                    className="flex-1"
+                  >
+                    {isAddingDevice ? "Lägger till..." : "Lägg till"}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowAddDialog(false);
+                      setNewDeviceId("");
+                    }}
+                  >
+                    Avbryt
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid gap-4">

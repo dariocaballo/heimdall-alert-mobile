@@ -23,6 +23,7 @@ interface AlarmData {
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userDevices, setUserDevices] = useState<string[]>([]);
+  const [userCode, setUserCode] = useState<string>("");
   const [isConnected, setIsConnected] = useState(false);
   const [lastAlarm, setLastAlarm] = useState<Date | null>(null);
   const [isTesting, setIsTesting] = useState(false);
@@ -34,12 +35,13 @@ const Index = () => {
   useEffect(() => {
     // Check if user is already authenticated
     const checkAuthentication = () => {
-      const userCode = localStorage.getItem('user_code');
+      const storedUserCode = localStorage.getItem('user_code');
       const devices = localStorage.getItem('user_devices');
       
-      if (userCode && devices) {
+      if (storedUserCode && devices) {
         try {
           const parsedDevices = JSON.parse(devices);
+          setUserCode(storedUserCode);
           setUserDevices(parsedDevices);
           setIsAuthenticated(true);
           setIsConnected(true);
@@ -47,7 +49,7 @@ const Index = () => {
           // Request FCM permission for authenticated users
           requestPermission().then(token => {
             if (token) {
-              saveFcmTokenToSupabase(token, userCode);
+              saveFcmTokenToSupabase(token, storedUserCode);
             }
           });
         } catch (error) {
@@ -86,26 +88,29 @@ const Index = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const handleLoginSuccess = (devices: string[]) => {
+  const handleLoginSuccess = (devices: string[], code: string) => {
     setUserDevices(devices);
+    setUserCode(code);
     setIsAuthenticated(true);
     setIsConnected(true);
     
     // Request FCM permission after successful login
-    const userCode = localStorage.getItem('user_code');
-    if (userCode) {
-      requestPermission().then(token => {
-        if (token) {
-          saveFcmTokenToSupabase(token, userCode);
-        }
-      });
-    }
+    requestPermission().then(token => {
+      if (token) {
+        saveFcmTokenToSupabase(token, code);
+      }
+    });
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserDevices([]);
+    setUserCode("");
     setIsConnected(false);
+  };
+
+  const handleDevicesUpdate = (newDevices: string[]) => {
+    setUserDevices(newDevices);
   };
 
   const handleFireAlarm = (data?: any) => {
@@ -200,7 +205,12 @@ const Index = () => {
         />
       )}
 
-      <DeviceList devices={userDevices} onLogout={handleLogout} />
+      <DeviceList 
+        devices={userDevices} 
+        userCode={userCode}
+        onLogout={handleLogout} 
+        onDevicesUpdate={handleDevicesUpdate}
+      />
     </>
   );
 };
