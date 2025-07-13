@@ -17,17 +17,24 @@ export const useFirebaseToken = () => {
 
   const saveFcmTokenToSupabase = async (token: string, userCode: string) => {
     try {
-      // This will save the FCM token to Supabase when Firebase is implemented
-      console.log('FCM Token would be saved:', token, 'for user:', userCode);
-      
-      // Future implementation:
-      // await supabase.from('user_fcm_tokens').upsert({
-      //   user_code: userCode,
-      //   fcm_token: token,
-      //   updated_at: new Date().toISOString()
-      // });
-      
-      return { success: true };
+      const { data, error } = await supabase.functions.invoke('save_fcm_token', {
+        body: { 
+          fcm_token: token, 
+          user_code: userCode,
+          device_info: {
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Error saving FCM token:', error);
+        return { success: false, error };
+      }
+
+      console.log('FCM Token saved successfully:', data);
+      return { success: true, data };
     } catch (error) {
       console.error('Error saving FCM token:', error);
       return { success: false, error };

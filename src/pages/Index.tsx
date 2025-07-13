@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import AlarmHistory from "@/components/AlarmHistory";
-import RealDeviceSetup from "@/components/RealDeviceSetup";
-import StatusMonitor from "@/components/StatusMonitor";
+import LiveStatus from "@/components/LiveStatus";
 import AlarmScreen from "@/components/AlarmScreen";
 import CodeLogin from "@/components/CodeLogin";
 import DeviceList from "@/components/DeviceList";
@@ -206,11 +205,24 @@ const Index = () => {
       )}
 
       <div className="min-h-screen bg-background">
-        <Tabs defaultValue="devices" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="devices">Enheter</TabsTrigger>
+        <Tabs defaultValue="status" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="status">Live Status</TabsTrigger>
             <TabsTrigger value="history">Historik</TabsTrigger>
+            <TabsTrigger value="devices">Enheter</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="status" className="mt-6">
+            <div className="container mx-auto px-4">
+              <LiveStatus userCode={userCode} devices={userDevices} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <div className="container mx-auto px-4">
+              <AlarmHistory userCode={userCode} />
+            </div>
+          </TabsContent>
           
           <TabsContent value="devices" className="mt-6">
             <DeviceList 
@@ -219,12 +231,6 @@ const Index = () => {
               onLogout={handleLogout} 
               onDevicesUpdate={handleDevicesUpdate}
             />
-          </TabsContent>
-          
-          <TabsContent value="history" className="mt-6">
-            <div className="container mx-auto px-4">
-              <AlarmHistory />
-            </div>
           </TabsContent>
         </Tabs>
       </div>
