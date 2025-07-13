@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, Loader } from "lucide-react";
+import TestConnection from "./TestConnection";
 
 interface CodeLoginProps {
   onLoginSuccess: (devices: string[], userCode: string) => void;
@@ -13,7 +14,39 @@ interface CodeLoginProps {
 const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showTest, setShowTest] = useState(false);
   const { toast } = useToast();
+
+  // Manuell lista med testdata som backup
+  const manualTestCodes = {
+    'DEMO01': ['shelly-smoke-demo-01', 'shelly-smoke-demo-02', 'shelly-smoke-demo-03'],
+    'TEST01': ['shelly-smoke-test-01', 'shelly-smoke-test-02'],
+    'ABC123': ['shelly-smoke-abc-01'],
+    'XYZ789': ['shelly-smoke-xyz-01']
+  };
+
+  const verifyCodeManually = (inputCode: string) => {
+    const upperCode = inputCode.toUpperCase();
+    console.log('Manual verification for code:', upperCode);
+    
+    if (manualTestCodes[upperCode as keyof typeof manualTestCodes]) {
+      const devices = manualTestCodes[upperCode as keyof typeof manualTestCodes];
+      console.log('Manual code found:', upperCode, 'devices:', devices);
+      
+      // Spara i localStorage
+      localStorage.setItem('user_code', upperCode);
+      localStorage.setItem('user_devices', JSON.stringify(devices));
+      
+      toast({
+        title: "Inloggning lyckad! (Manuell)",
+        description: `${devices.length} brandvarnare hittade`,
+      });
+      
+      onLoginSuccess(devices, upperCode);
+      return true;
+    }
+    return false;
+  };
 
   const verifyCode = async () => {
     // Validate 6-character alphanumeric code
@@ -27,64 +60,75 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
     }
 
     setIsLoading(true);
+    
     try {
       const upperCode = code.toUpperCase();
-      console.log('Verifying code directly against database:', code, 'Uppercase:', upperCode);
+      console.log('Verifying code:', code, 'Uppercase:', upperCode);
       
-      // Check code directly against database instead of edge function
-      const { data: codeData, error: codeError } = await supabase
-        .from('user_codes')
-        .select('user_code')
-        .eq('user_code', upperCode)
-        .single();
+      // Försök först med Supabase
+      try {
+        console.log('Trying Supabase verification...');
+        
+        const { data: codeData, error: codeError } = await supabase
+          .from('user_codes')
+          .select('user_code')
+          .eq('user_code', upperCode)
+          .single();
 
-      console.log('Code check result:', { codeData, codeError });
+        console.log('Supabase code check result:', { codeData, codeError });
 
-      if (codeError || !codeData) {
-        toast({
-          title: "Ogiltig kod",
-          description: "Koden kunde inte hittas. Kontrollera och försök igen.",
-          variant: "destructive",
-        });
+        if (!codeError && codeData) {
+          // Get devices from Supabase
+          const { data: devices, error: devicesError } = await supabase
+            .from('user_devices')
+            .select('device_id')
+            .eq('user_code', upperCode);
+
+          console.log('Supabase devices result:', { devices, devicesError });
+
+          if (!devicesError && devices) {
+            const deviceIds = devices.map(d => d.device_id);
+            
+            localStorage.setItem('user_code', upperCode);
+            localStorage.setItem('user_devices', JSON.stringify(deviceIds));
+            
+            toast({
+              title: "Inloggning lyckad! (Supabase)",
+              description: `${deviceIds.length} brandvarnare hittade`,
+            });
+            
+            onLoginSuccess(deviceIds, upperCode);
+            return;
+          }
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase verification failed:', supabaseError);
+      }
+      
+      // Fallback till manuell verifiering
+      console.log('Falling back to manual verification...');
+      if (verifyCodeManually(upperCode)) {
         return;
       }
-
-      // Get devices for this code
-      const { data: devices, error: devicesError } = await supabase
-        .from('user_devices')
-        .select('device_id')
-        .eq('user_code', upperCode);
-
-      console.log('Devices result:', { devices, devicesError });
-
-      if (devicesError) {
-        console.error('Error fetching devices:', devicesError);
-        toast({
-          title: "Databasfel",
-          description: "Kunde inte hämta enheter från databasen.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const deviceIds = devices?.map(d => d.device_id) || [];
       
-      // Save user info to localStorage
-      localStorage.setItem('user_code', upperCode);
-      localStorage.setItem('user_devices', JSON.stringify(deviceIds));
-      
+      // Ingen kod hittades
       toast({
-        title: "Inloggning lyckad!",
-        description: `${deviceIds.length} brandvarnare hittade`,
+        title: "Ogiltig kod",
+        description: "Koden kunde inte hittas. Testa: DEMO01, TEST01, ABC123, XYZ789",
+        variant: "destructive",
       });
-      
-      onLoginSuccess(deviceIds, upperCode);
       
     } catch (error) {
       console.error('Verification error:', error);
+      
+      // Försök manuell verifiering som sista utväg
+      if (verifyCodeManually(code.toUpperCase())) {
+        return;
+      }
+      
       toast({
         title: "Nätverksfel",
-        description: "Kunde inte ansluta till databasen",
+        description: "Kunde inte ansluta till databasen, försökte manuell verifiering",
         variant: "destructive",
       });
     } finally {
@@ -118,16 +162,16 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
                 maxLength={6}
                 value={code}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); // Only alphanumeric
+                  const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                   if (value.length <= 6) {
                     setCode(value);
                   }
                 }}
-                placeholder="ABC123"
+                placeholder="DEMO01"
                 className="text-center text-2xl font-mono tracking-widest"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Bokstäver och siffror tillåtna
+                Testa: DEMO01, TEST01, ABC123, XYZ789
               </p>
             </div>
           </div>
@@ -146,6 +190,18 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
               'Logga in'
             )}
           </Button>
+          
+          <div className="text-center">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowTest(!showTest)}
+            >
+              {showTest ? 'Dölj Test' : 'Visa Anslutningstest'}
+            </Button>
+          </div>
+          
+          {showTest && <TestConnection />}
         </CardContent>
       </Card>
     </div>
