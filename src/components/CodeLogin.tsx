@@ -28,13 +28,14 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
 
     setIsLoading(true);
     try {
-      console.log('Verifying code directly against database:', code);
+      const upperCode = code.toUpperCase();
+      console.log('Verifying code directly against database:', code, 'Uppercase:', upperCode);
       
       // Check code directly against database instead of edge function
       const { data: codeData, error: codeError } = await supabase
         .from('user_codes')
         .select('user_code')
-        .eq('user_code', code.toUpperCase())
+        .eq('user_code', upperCode)
         .single();
 
       console.log('Code check result:', { codeData, codeError });
@@ -52,7 +53,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       const { data: devices, error: devicesError } = await supabase
         .from('user_devices')
         .select('device_id')
-        .eq('user_code', code.toUpperCase());
+        .eq('user_code', upperCode);
 
       console.log('Devices result:', { devices, devicesError });
 
@@ -69,7 +70,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       const deviceIds = devices?.map(d => d.device_id) || [];
       
       // Save user info to localStorage
-      localStorage.setItem('user_code', code);
+      localStorage.setItem('user_code', upperCode);
       localStorage.setItem('user_devices', JSON.stringify(deviceIds));
       
       toast({
@@ -77,7 +78,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
         description: `${deviceIds.length} brandvarnare hittade`,
       });
       
-      onLoginSuccess(deviceIds, code);
+      onLoginSuccess(deviceIds, upperCode);
       
     } catch (error) {
       console.error('Verification error:', error);
