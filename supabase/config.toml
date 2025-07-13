@@ -29,3 +29,6 @@ port = 54327
 
 [functions.verify_user_code]
 verify_jwt = false
+
+[functions.test_login]
+verify_jwt = false

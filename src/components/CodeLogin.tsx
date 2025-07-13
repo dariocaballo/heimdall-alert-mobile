@@ -28,15 +28,14 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
 
     setIsLoading(true);
     try {
-      console.log('Calling verify_user_code with code:', code);
-      console.log('Supabase client config check');
+      console.log('Calling test_login with code:', code);
       
-      // Test med explicit URL om det behövs
-      const response = await supabase.functions.invoke('verify_user_code', {
+      // Prova den nya funktionen
+      const response = await supabase.functions.invoke('test_login', {
         body: { code: code }
       });
       
-      console.log('Full response from edge function:', response);
+      console.log('Full response from test_login:', response);
       const { data, error } = response;
 
       if (error) {
