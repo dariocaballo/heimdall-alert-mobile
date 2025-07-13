@@ -29,6 +29,8 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
     setIsLoading(true);
     try {
       console.log('Calling verify_user_code with code:', code);
+      console.log('Supabase URL:', 'https://owgkhkxsaeizgwxebarh.supabase.co');
+      
       const { data, error } = await supabase.functions.invoke('verify_user_code', {
         body: { code: code }
       });
@@ -38,8 +40,8 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       if (error) {
         console.error('Edge function error:', error);
         toast({
-          title: "Verifieringsfel",
-          description: "Kunde inte verifiera koden. Försök igen.",
+          title: "Verifieringsfel", 
+          description: `Fel: ${error.message || 'Kunde inte ansluta till servern'}`,
           variant: "destructive",
         });
         return;
