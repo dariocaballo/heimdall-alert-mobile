@@ -16,28 +16,121 @@ export type Database = {
     Tables: {
       alarms: {
         Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alarm_type: string | null
           battery: boolean | null
+          device_id: string | null
           id: string
+          location: string | null
           raw_data: Json | null
           smoke: boolean | null
           temp: number | null
           timestamp: string | null
+          user_code: string | null
         }
         Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alarm_type?: string | null
           battery?: boolean | null
+          device_id?: string | null
           id?: string
+          location?: string | null
           raw_data?: Json | null
           smoke?: boolean | null
           temp?: number | null
           timestamp?: string | null
+          user_code?: string | null
         }
         Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alarm_type?: string | null
           battery?: boolean | null
+          device_id?: string | null
           id?: string
+          location?: string | null
           raw_data?: Json | null
           smoke?: boolean | null
           temp?: number | null
           timestamp?: string | null
+          user_code?: string | null
+        }
+        Relationships: []
+      }
+      device_status: {
+        Row: {
+          battery_level: number | null
+          created_at: string
+          device_id: string
+          id: string
+          last_seen: string | null
+          online: boolean | null
+          raw_data: Json | null
+          signal_strength: number | null
+          smoke: boolean | null
+          temperature: number | null
+          updated_at: string
+          user_code: string
+        }
+        Insert: {
+          battery_level?: number | null
+          created_at?: string
+          device_id: string
+          id?: string
+          last_seen?: string | null
+          online?: boolean | null
+          raw_data?: Json | null
+          signal_strength?: number | null
+          smoke?: boolean | null
+          temperature?: number | null
+          updated_at?: string
+          user_code: string
+        }
+        Update: {
+          battery_level?: number | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          last_seen?: string | null
+          online?: boolean | null
+          raw_data?: Json | null
+          signal_strength?: number | null
+          smoke?: boolean | null
+          temperature?: number | null
+          updated_at?: string
+          user_code?: string
+        }
+        Relationships: []
+      }
+      fcm_tokens: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          fcm_token: string
+          id: string
+          updated_at: string
+          user_code: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          fcm_token: string
+          id?: string
+          updated_at?: string
+          user_code: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          fcm_token?: string
+          id?: string
+          updated_at?: string
+          user_code?: string
         }
         Relationships: []
       }
@@ -85,7 +178,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      device_overview: {
+        Row: {
+          battery_level: number | null
+          device_added: string | null
+          device_id: string | null
+          last_seen: string | null
+          latest_data: Json | null
+          online: boolean | null
+          signal_strength: number | null
+          smoke: boolean | null
+          temperature: number | null
+          user_code: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
