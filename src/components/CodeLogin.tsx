@@ -28,49 +28,62 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
 
     setIsLoading(true);
     try {
-      console.log('Calling test_login with code:', code);
+      console.log('Verifying code directly against database:', code);
       
-      // Prova den nya funktionen
-      const response = await supabase.functions.invoke('test_login', {
-        body: { code: code }
-      });
-      
-      console.log('Full response from test_login:', response);
-      const { data, error } = response;
+      // Check code directly against database instead of edge function
+      const { data: codeData, error: codeError } = await supabase
+        .from('user_codes')
+        .select('user_code')
+        .eq('user_code', code.toUpperCase())
+        .single();
 
-      if (error) {
-        console.error('Edge function error details:', error);
+      console.log('Code check result:', { codeData, codeError });
+
+      if (codeError || !codeData) {
         toast({
-          title: "Anslutningsfel", 
-          description: `Fel: ${error.message || 'Kunde inte ansluta till edge function'}`,
+          title: "Ogiltig kod",
+          description: "Koden kunde inte hittas. Kontrollera och försök igen.",
           variant: "destructive",
         });
         return;
       }
 
-      if (data?.success && data?.device_ids) {
-        // Save user info to localStorage
-        localStorage.setItem('user_code', code);
-        localStorage.setItem('user_devices', JSON.stringify(data.device_ids));
-        
+      // Get devices for this code
+      const { data: devices, error: devicesError } = await supabase
+        .from('user_devices')
+        .select('device_id')
+        .eq('user_code', code.toUpperCase());
+
+      console.log('Devices result:', { devices, devicesError });
+
+      if (devicesError) {
+        console.error('Error fetching devices:', devicesError);
         toast({
-          title: "Inloggning lyckad!",
-          description: `${data.device_ids.length} brandvarnare hittade`,
-        });
-        
-        onLoginSuccess(data.device_ids, code);
-      } else {
-        toast({
-          title: "Ogiltig kod",
-          description: data?.error || "Koden kunde inte hittas. Kontrollera och försök igen.",
+          title: "Databasfel",
+          description: "Kunde inte hämta enheter från databasen.",
           variant: "destructive",
         });
+        return;
       }
+
+      const deviceIds = devices?.map(d => d.device_id) || [];
+      
+      // Save user info to localStorage
+      localStorage.setItem('user_code', code);
+      localStorage.setItem('user_devices', JSON.stringify(deviceIds));
+      
+      toast({
+        title: "Inloggning lyckad!",
+        description: `${deviceIds.length} brandvarnare hittade`,
+      });
+      
+      onLoginSuccess(deviceIds, code);
+      
     } catch (error) {
       console.error('Verification error:', error);
       toast({
         title: "Nätverksfel",
-        description: "Kunde inte ansluta till servern",
+        description: "Kunde inte ansluta till databasen",
         variant: "destructive",
       });
     } finally {
