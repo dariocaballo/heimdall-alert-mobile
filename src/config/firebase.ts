@@ -17,7 +17,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Cloud Messaging and get a reference to the service
 export const messaging = getMessaging(app);
 
-// Generate a unique VAPID key for your project
-export const vapidKey = "your-vapid-key";
+// VAPID key for push notifications
+export const vapidKey = "BDPA6CJTREnWvIzyOMP4yBpHiXS9udrcx-x-jdu7cU_M6E69wpEgSzpZkFWXLJL1Q063fnGWbls1OJYcLKfIeJo";
 
 export { getToken, onMessage };
