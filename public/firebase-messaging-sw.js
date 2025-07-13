@@ -1,6 +1,6 @@
 // Give the service worker access to Firebase Messaging
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
 // Initialize the Firebase app in the service worker
 firebase.initializeApp({
@@ -19,13 +19,15 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification?.title || 'Brandlarm!';
+  const notificationTitle = payload.notification?.title || '🚨 ID-BEVAKARNA BRANDLARM!';
   const notificationOptions = {
-    body: payload.notification?.body || 'En brandvarnare har utlösts!',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    body: payload.notification?.body || 'BRANDLARM AKTIVERAT! Kontrollera området omedelbart.',
+    icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+    badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
     tag: 'fire-alarm',
+    vibrate: [500, 300, 500, 300, 500],
     requireInteraction: true,
+    silent: false,
     actions: [
       {
         action: 'view',
