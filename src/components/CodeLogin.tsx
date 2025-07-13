@@ -29,19 +29,21 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
     setIsLoading(true);
     try {
       console.log('Calling verify_user_code with code:', code);
-      console.log('Supabase URL:', 'https://owgkhkxsaeizgwxebarh.supabase.co');
+      console.log('Supabase client config check');
       
-      const { data, error } = await supabase.functions.invoke('verify_user_code', {
+      // Test med explicit URL om det behövs
+      const response = await supabase.functions.invoke('verify_user_code', {
         body: { code: code }
       });
-
-      console.log('Response from verify_user_code:', { data, error });
+      
+      console.log('Full response from edge function:', response);
+      const { data, error } = response;
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('Edge function error details:', error);
         toast({
-          title: "Verifieringsfel", 
-          description: `Fel: ${error.message || 'Kunde inte ansluta till servern'}`,
+          title: "Anslutningsfel", 
+          description: `Fel: ${error.message || 'Kunde inte ansluta till edge function'}`,
           variant: "destructive",
         });
         return;
