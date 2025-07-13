@@ -1,14 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
-// Firebase configuration - you can get this from your Firebase project settings
+// Firebase configuration
 const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com", 
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "your-app-id"
+  apiKey: "AIzaSyC_nk4IyViUofvyIdaYq2iU7WfYCVNTiPE",
+  authDomain: "id-bedragarna.firebaseapp.com",
+  projectId: "id-bedragarna",
+  storageBucket: "id-bedragarna.firebasestorage.app",
+  messagingSenderId: "123448584214",
+  appId: "1:123448584214:android:d957a0a4dcd1e714e32d37"
 };
 
 // Initialize Firebase

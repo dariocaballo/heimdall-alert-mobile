@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "123448584214",
+    "project_id": "id-bedragarna",
+    "storage_bucket": "id-bedragarna.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123448584214:android:d957a0a4dcd1e714e32d37",
+        "android_client_info": {
+          "package_name": "idbevakarna.idbevakarna"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_nk4IyViUofvyIdaYq2iU7WfYCVNTiPE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,7 +2,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.idbevakarna.app',
+  appId: 'idbevakarna.idbevakarna',
   appName: 'ID-Bevakarna',
   webDir: 'dist',
   server: {
