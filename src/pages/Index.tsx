@@ -11,6 +11,7 @@ import LiveStatus from "@/components/LiveStatus";
 import AlarmScreen from "@/components/AlarmScreen";
 import CodeLogin from "@/components/CodeLogin";
 import DeviceList from "@/components/DeviceList";
+import FirebaseSetup from "@/components/FirebaseSetup";
 import { useFirebaseToken } from "@/hooks/useFirebaseToken";
 
 interface AlarmData {
@@ -28,8 +29,9 @@ const Index = () => {
   const [isTesting, setIsTesting] = useState(false);
   const [showAlarmScreen, setShowAlarmScreen] = useState(false);
   const [currentAlarm, setCurrentAlarm] = useState<AlarmData | null>(null);
+  const [showFirebaseSetup, setShowFirebaseSetup] = useState(false);
   const { toast } = useToast();
-  const { requestPermission, saveFcmTokenToSupabase } = useFirebaseToken();
+  const { requestPermission, saveFcmTokenToSupabase, isSupported } = useFirebaseToken();
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -206,10 +208,11 @@ const Index = () => {
 
       <div className="min-h-screen bg-background">
         <Tabs defaultValue="status" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="status">Live Status</TabsTrigger>
             <TabsTrigger value="history">Historik</TabsTrigger>
             <TabsTrigger value="devices">Enheter</TabsTrigger>
+            <TabsTrigger value="firebase">Firebase</TabsTrigger>
           </TabsList>
           
           <TabsContent value="status" className="mt-6">
@@ -231,6 +234,12 @@ const Index = () => {
               onLogout={handleLogout} 
               onDevicesUpdate={handleDevicesUpdate}
             />
+          </TabsContent>
+
+          <TabsContent value="firebase" className="mt-6">
+            <div className="container mx-auto px-4">
+              <FirebaseSetup />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

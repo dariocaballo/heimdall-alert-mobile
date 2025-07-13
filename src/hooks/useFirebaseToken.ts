@@ -1,15 +1,42 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { messaging, getToken, onMessage, vapidKey } from '@/config/firebase';
 
 export const useFirebaseToken = () => {
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
-    // Check if Firebase messaging is available (will be implemented later)
     const checkFirebaseSupport = () => {
-      // For now, just check if we're in a web environment that could support FCM
-      setIsSupported(typeof window !== 'undefined' && 'serviceWorker' in navigator);
+      const supported = typeof window !== 'undefined' && 
+                       'serviceWorker' in navigator && 
+                       'Notification' in window &&
+                       messaging !== null;
+      setIsSupported(supported);
+      
+      if (supported) {
+        // Register service worker for Firebase messaging
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+          .then((registration) => {
+            console.log('Service Worker registered successfully:', registration);
+          })
+          .catch((error) => {
+            console.log('Service Worker registration failed:', error);
+          });
+          
+        // Listen for foreground messages
+        onMessage(messaging, (payload) => {
+          console.log('Message received in foreground: ', payload);
+          
+          // Create notification for foreground messages
+          if (Notification.permission === 'granted') {
+            new Notification(payload.notification?.title || 'Brandlarm!', {
+              body: payload.notification?.body || 'En brandvarnare har utlösts!',
+              icon: '/favicon.ico'
+            });
+          }
+        });
+      }
     };
 
     checkFirebaseSupport();
@@ -48,20 +75,33 @@ export const useFirebaseToken = () => {
     }
 
     try {
-      // Future Firebase implementation will go here
-      console.log('Firebase permission request would happen here');
+      // Request notification permission
+      const permission = await Notification.requestPermission();
       
-      // For now, just simulate permission granted
+      if (permission === 'granted') {
+        console.log('Notification permission granted.');
+        
+        // Get FCM token
+        const token = await getToken(messaging, { vapidKey });
+        console.log('FCM Token:', token);
+        
+        setFcmToken(token);
+        localStorage.setItem('fcm_token', token);
+        
+        return token;
+      } else {
+        console.log('Unable to get permission to notify.');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting FCM token:', error);
+      
+      // Fallback to mock token for development
       const mockToken = `mock_token_${Date.now()}`;
       setFcmToken(mockToken);
-      
-      // Save to localStorage for now
       localStorage.setItem('fcm_token', mockToken);
       
       return mockToken;
-    } catch (error) {
-      console.error('Error requesting permission:', error);
-      return null;
     }
   };
 
