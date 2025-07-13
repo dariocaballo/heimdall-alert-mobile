@@ -205,12 +205,29 @@ const Index = () => {
         />
       )}
 
-      <DeviceList 
-        devices={userDevices} 
-        userCode={userCode}
-        onLogout={handleLogout} 
-        onDevicesUpdate={handleDevicesUpdate}
-      />
+      <div className="min-h-screen bg-background">
+        <Tabs defaultValue="devices" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="devices">Enheter</TabsTrigger>
+            <TabsTrigger value="history">Historik</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="devices" className="mt-6">
+            <DeviceList 
+              devices={userDevices} 
+              userCode={userCode}
+              onLogout={handleLogout} 
+              onDevicesUpdate={handleDevicesUpdate}
+            />
+          </TabsContent>
+          
+          <TabsContent value="history" className="mt-6">
+            <div className="container mx-auto px-4">
+              <AlarmHistory />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </>
   );
 };
