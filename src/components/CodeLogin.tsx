@@ -28,9 +28,12 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
 
     setIsLoading(true);
     try {
+      console.log('Calling verify_user_code with code:', code);
       const { data, error } = await supabase.functions.invoke('verify_user_code', {
         body: { code: code }
       });
+
+      console.log('Response from verify_user_code:', { data, error });
 
       if (error) {
         console.error('Edge function error:', error);
