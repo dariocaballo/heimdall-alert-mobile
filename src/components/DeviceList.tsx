@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle, Wifi, WifiOff, Battery, Thermometer, AlarmSmoke, LogOut, Plus } from "lucide-react";
+import { AlertTriangle, CheckCircle, Wifi, WifiOff, Battery, Thermometer, AlarmSmoke, LogOut, Plus, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -189,46 +189,38 @@ const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceList
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Settings className="w-5 h-5" />
+              <span>Mina brandvarnare</span>
+            </CardTitle>
+            <CardDescription>Laddar enheter...</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png" 
-                alt="ID-Bevakarna Logo" 
-                className="h-8 w-auto"
-              />
-              <div>
-                <h1 className="text-xl font-bold text-blue-600">ID-Bevakarna</h1>
-                <p className="text-xs text-gray-600">Brandskydd för hemmet</p>
-              </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl flex items-center space-x-2">
+                <Settings className="w-6 h-6" />
+                <span>Mina brandvarnare</span>
+              </CardTitle>
+              <CardDescription>{devices.length} enheter registrerade</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logga ut
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Mina brandvarnare</h2>
-            <p className="text-gray-600">{devices.length} enheter registrerade</p>
-          </div>
-          
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Logga ut
+              </Button>
+              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button className="flex items-center space-x-2">
                 <Plus className="w-4 h-4" />
@@ -277,10 +269,12 @@ const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceList
                 </div>
               </div>
             </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="grid gap-4">
+              </Dialog>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
           {deviceStatuses.map((status) => (
             <Card key={status.device_id} className="border-l-4 border-l-blue-500">
               <CardHeader className="pb-3">
@@ -374,8 +368,9 @@ const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceList
               </CardContent>
             </Card>
           ))}
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Bell, Shield, History, Settings, AlertTriangle, CheckCircle, Phone } from "lucide-react";
+import { Bell, Shield, History, Settings, AlertTriangle, CheckCircle, Phone, Users, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import LiveStatus from "@/components/LiveStatus";
 import AlarmScreen from "@/components/AlarmScreen";
 import CodeLogin from "@/components/CodeLogin";
 import DeviceList from "@/components/DeviceList";
-import FirebaseSetup from "@/components/FirebaseSetup";
+import FleetManager from "@/components/FleetManager";
 import { useFirebaseToken } from "@/hooks/useFirebaseToken";
 
 interface AlarmData {
@@ -206,13 +206,50 @@ const Index = () => {
         />
       )}
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-3">
+                <img 
+                  src="/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png" 
+                  alt="ID-Bevakarna" 
+                  className="h-10 w-auto"
+                />
+                <div>
+                  <h1 className="text-2xl font-bold text-primary">ID-Bevakarna</h1>
+                  <p className="text-sm text-muted-foreground">Professionellt Brandskydd</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="text-green-700 border-green-300">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Ansluten
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <Tabs defaultValue="status" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="status">Live Status</TabsTrigger>
-            <TabsTrigger value="history">Historik</TabsTrigger>
-            <TabsTrigger value="devices">Enheter</TabsTrigger>
-            <TabsTrigger value="firebase">Firebase</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
+            <TabsTrigger value="status" className="flex items-center space-x-2">
+              <Activity className="w-4 h-4" />
+              <span>Live Status</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center space-x-2">
+              <History className="w-4 h-4" />
+              <span>Historik</span>
+            </TabsTrigger>
+            <TabsTrigger value="devices" className="flex items-center space-x-2">
+              <Settings className="w-4 h-4" />
+              <span>Enheter</span>
+            </TabsTrigger>
+            <TabsTrigger value="fleet" className="flex items-center space-x-2">
+              <Users className="w-4 h-4" />
+              <span>Fleet Manager</span>
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="status" className="mt-6">
@@ -228,19 +265,22 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="devices" className="mt-6">
-            <DeviceList 
-              devices={userDevices} 
-              userCode={userCode}
-              onLogout={handleLogout} 
-              onDevicesUpdate={handleDevicesUpdate}
-            />
-          </TabsContent>
-
-          <TabsContent value="firebase" className="mt-6">
             <div className="container mx-auto px-4">
-              <FirebaseSetup />
+              <DeviceList 
+                devices={userDevices} 
+                userCode={userCode}
+                onLogout={handleLogout} 
+                onDevicesUpdate={handleDevicesUpdate}
+              />
             </div>
           </TabsContent>
+
+          <TabsContent value="fleet" className="mt-6">
+            <div className="container mx-auto px-4">
+              <FleetManager userCode={userCode} />
+            </div>
+          </TabsContent>
+
         </Tabs>
       </div>
     </>
