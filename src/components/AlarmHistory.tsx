@@ -32,6 +32,28 @@ const AlarmHistory = ({ userCode }: AlarmHistoryProps) => {
 
   useEffect(() => {
     loadAlarmHistory();
+    
+    // Set up real-time subscription for new alarms
+    const channel = supabase
+      .channel('alarm-history-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'alarms',
+          filter: `user_code=eq.${userCode}`
+        },
+        (payload) => {
+          console.log('New alarm in history:', payload);
+          loadAlarmHistory();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userCode]);
 
   const loadAlarmHistory = async () => {
