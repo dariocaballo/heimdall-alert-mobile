@@ -9,9 +9,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ShellyDeviceSetupProps {
   onConnectionChange: (connected: boolean) => void;
+  onDeviceAdded?: (deviceId: string) => void;
+  userCode: string;
 }
 
-const ShellyDeviceSetup = ({ onConnectionChange }: ShellyDeviceSetupProps) => {
+const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: ShellyDeviceSetupProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [discoveredDevices, setDiscoveredDevices] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -114,18 +116,7 @@ const ShellyDeviceSetup = ({ onConnectionChange }: ShellyDeviceSetupProps) => {
     if (!selectedDevice) return;
 
     setIsConnecting(true);
-    const userCode = localStorage.getItem('user_code');
     
-    if (!userCode) {
-      toast({
-        title: "Fel", 
-        description: "Ingen användarkod hittad. Logga in igen.",
-        variant: "destructive",
-      });
-      setIsConnecting(false);
-      return;
-    }
-
     try {
       // Lägg till enheten i användarens konto
       const { data, error } = await supabase.functions.invoke('add_device', {
@@ -141,6 +132,11 @@ const ShellyDeviceSetup = ({ onConnectionChange }: ShellyDeviceSetupProps) => {
 
       // Konfigurera webhook automatiskt
       await configureWebhook(selectedDevice.ip);
+
+      // Notify parent component about the new device
+      if (onDeviceAdded) {
+        onDeviceAdded(selectedDevice.id);
+      }
 
       toast({
         title: "✅ Brandvarnare tillagd!",

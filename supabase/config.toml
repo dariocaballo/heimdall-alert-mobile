@@ -27,8 +27,26 @@ port = 54326
 enabled = true
 port = 54327
 
-[functions.verify_user_code]
+[functions.add_device]
+verify_jwt = false
+
+[functions.get_alarm_history]
+verify_jwt = false
+
+[functions.get_device_status]
+verify_jwt = false
+
+[functions.remove_device]
+verify_jwt = false
+
+[functions.save_fcm_token]
+verify_jwt = false
+
+[functions.shelly_webhook]
 verify_jwt = false
 
 [functions.test_login]
+verify_jwt = false
+
+[functions.verify_user_code]
 verify_jwt = false

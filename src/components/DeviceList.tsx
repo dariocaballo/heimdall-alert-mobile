@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle, Wifi, WifiOff, Battery, Thermometer, AlarmSmoke, LogOut, Plus, Settings } from "lucide-react";
+import { AlertTriangle, CheckCircle, Wifi, WifiOff, Battery, Thermometer, AlarmSmoke, LogOut, Plus, Settings, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import ShellyDeviceSetup from "./ShellyDeviceSetup";
+import { AlertDialog as AlertDialogComponent, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface DeviceStatus {
   device_id: string;
@@ -27,9 +28,8 @@ interface DeviceListProps {
 const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceListProps) => {
   const [deviceStatuses, setDeviceStatuses] = useState<DeviceStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newDeviceId, setNewDeviceId] = useState("");
-  const [isAddingDevice, setIsAddingDevice] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [removingDeviceId, setRemovingDeviceId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchDeviceStatuses = async () => {
@@ -109,65 +109,67 @@ const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceList
     onLogout();
   };
 
-  const addDevice = async () => {
-    if (!newDeviceId.trim()) {
-      toast({
-        title: "Felaktig enhet",
-        description: "Ange ett giltigt enhets-ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsAddingDevice(true);
+  const removeDevice = async (deviceId: string) => {
+    setRemovingDeviceId(deviceId);
     try {
-      const { data, error } = await supabase.functions.invoke('add_device', {
+      const { data, error } = await supabase.functions.invoke('remove_device', {
         body: { 
           user_code: userCode, 
-          device_id: newDeviceId.trim() 
+          device_id: deviceId 
         }
       });
 
       if (error) {
-        console.error('Error adding device:', error);
+        console.error('Error removing device:', error);
         toast({
-          title: "Fel vid tillägg",
-          description: "Kunde inte lägga till enheten. Försök igen.",
+          title: "Fel vid borttagning",
+          description: "Kunde inte ta bort enheten. Försök igen.",
           variant: "destructive",
         });
         return;
       }
 
       if (data?.success) {
-        const updatedDevices = [...devices, newDeviceId.trim()];
+        const updatedDevices = devices.filter(id => id !== deviceId);
         localStorage.setItem('user_devices', JSON.stringify(updatedDevices));
         onDevicesUpdate(updatedDevices);
         
-        setNewDeviceId("");
-        setShowAddDialog(false);
         fetchDeviceStatuses();
         
         toast({
-          title: "Enhet tillagd!",
-          description: "Brandvarnaren har lagts till i ditt konto",
+          title: "Enhet borttagen!",
+          description: "Brandvarnaren har tagits bort från ditt konto",
         });
       } else {
         toast({
-          title: "Fel vid tillägg",
-          description: data?.error || "Kunde inte lägga till enheten",
+          title: "Fel vid borttagning",
+          description: data?.error || "Kunde inte ta bort enheten",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Add device error:', error);
+      console.error('Remove device error:', error);
       toast({
         title: "Nätverksfel",
         description: "Kunde inte ansluta till servern",
         variant: "destructive",
       });
     } finally {
-      setIsAddingDevice(false);
+      setRemovingDeviceId(null);
     }
+  };
+
+  const handleDeviceAdded = (deviceId: string) => {
+    const updatedDevices = [...devices, deviceId];
+    localStorage.setItem('user_devices', JSON.stringify(updatedDevices));
+    onDevicesUpdate(updatedDevices);
+    setShowAddDialog(false);
+    fetchDeviceStatuses();
+    
+    toast({
+      title: "Enhet tillagd!",
+      description: "Brandvarnaren har lagts till i ditt konto",
+    });
   };
 
   const getDeviceName = (deviceId: string) => {
@@ -221,54 +223,34 @@ const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceList
                 Logga ut
               </Button>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>Lägg till brandvarnare</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Lägg till ny brandvarnare</DialogTitle>
-                <DialogDescription>
-                  Ange enhets-ID för din Shelly Smoke brandvarnare
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Enhets-ID
-                  </label>
-                  <Input
-                    value={newDeviceId}
-                    onChange={(e) => setNewDeviceId(e.target.value)}
-                    placeholder="t.ex. shelly-smoke-001"
-                    className="w-full"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Hittar du ID:t på enhetens etikett eller i Shelly-appen
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <Button 
-                    onClick={addDevice}
-                    disabled={!newDeviceId.trim() || isAddingDevice}
-                    className="flex-1"
-                  >
-                    {isAddingDevice ? "Lägger till..." : "Lägg till"}
+                <DialogTrigger asChild>
+                  <Button className="flex items-center space-x-2">
+                    <Plus className="w-4 h-4" />
+                    <span>Lägg till brandvarnare</span>
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowAddDialog(false);
-                      setNewDeviceId("");
-                    }}
-                  >
-                    Avbryt
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Lägg till ny brandvarnare</DialogTitle>
+                    <DialogDescription>
+                      Följ stegen för att ansluta din Shelly Plus Smoke brandvarnare
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="pt-4">
+                    <ShellyDeviceSetup 
+                      onConnectionChange={(connected) => {
+                        if (connected) {
+                          // Refresh device list when a new device is connected
+                          setTimeout(() => {
+                            fetchDeviceStatuses();
+                          }, 1000);
+                        }
+                      }}
+                      onDeviceAdded={handleDeviceAdded}
+                      userCode={userCode}
+                    />
+                  </div>
+                </DialogContent>
               </Dialog>
             </div>
           </div>
@@ -297,6 +279,36 @@ const DeviceList = ({ devices, userCode, onLogout, onDevicesUpdate }: DeviceList
                         Offline
                       </Badge>
                     )}
+                    <AlertDialogComponent>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={removingDeviceId === status.device_id}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Ta bort brandvarnare</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Är du säker på att du vill ta bort "{getDeviceName(status.device_id)}"? 
+                            Detta kan inte ångras och enheten kommer inte längre att skicka notifikationer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => removeDevice(status.device_id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            {removingDeviceId === status.device_id ? "Tar bort..." : "Ta bort"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialogComponent>
                   </div>
                 </div>
               </CardHeader>
