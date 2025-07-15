@@ -170,7 +170,7 @@ serve(async (req) => {
 
 async function sendPushNotification(supabase: any, userCode: string, notification: any) {
   try {
-    // Hämta alla FCM tokens för denna user_code
+    // Get all FCM tokens for this user_code
     const { data: tokens, error } = await supabase
       .from('fcm_tokens')
       .select('fcm_token')
@@ -181,13 +181,70 @@ async function sendPushNotification(supabase: any, userCode: string, notificatio
       return;
     }
 
-    // Här skulle du anropa Firebase Cloud Messaging
-    // För nu loggar vi bara
-    console.log('Would send push notification to', tokens.length, 'devices');
-    console.log('Notification:', notification);
+    // Send FCM notifications via Firebase Admin SDK
+    const firebaseServerKey = Deno.env.get('FIREBASE_SERVER_KEY');
     
-    // TODO: Implementera FCM push notification här
-    // Behöver Firebase Admin SDK eller HTTP API
+    if (!firebaseServerKey) {
+      console.log('Firebase server key not configured');
+      return;
+    }
+
+    const fcmUrl = 'https://fcm.googleapis.com/fcm/send';
+    
+    for (const tokenData of tokens) {
+      const fcmPayload = {
+        to: tokenData.fcm_token,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+          badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+          click_action: '/',
+          sound: 'default'
+        },
+        data: notification.data,
+        priority: 'high',
+        webpush: {
+          notification: {
+            title: notification.title,
+            body: notification.body,
+            icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+            badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+            vibrate: [500, 300, 500, 300, 500],
+            requireInteraction: true,
+            actions: [
+              {
+                action: 'view',
+                title: 'Öppna ID-Bevakarna'
+              },
+              {
+                action: 'call',
+                title: 'Ring 112'
+              }
+            ]
+          }
+        }
+      };
+
+      try {
+        const response = await fetch(fcmUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `key=${firebaseServerKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(fcmPayload)
+        });
+
+        if (response.ok) {
+          console.log('FCM notification sent successfully to token:', tokenData.fcm_token.slice(0, 10) + '...');
+        } else {
+          console.error('FCM send failed:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error sending FCM to token:', error);
+      }
+    }
     
   } catch (error) {
     console.error('Error sending push notification:', error);

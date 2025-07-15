@@ -32,8 +32,25 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
 
   useEffect(() => {
     loadDeviceStatuses();
-    // Set up real-time updates
-    const interval = setInterval(loadDeviceStatuses, 30000); // Update every 30 seconds
+    
+    // Set up real-time updates every 30 seconds
+    const interval = setInterval(loadDeviceStatuses, 30000);
+    
+    // Set up Shelly Cloud API polling as backup every 2 minutes
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('shelly_cloud_api', {
+          body: { user_code: userCode }
+        });
+        
+        if (!error && data?.success) {
+          console.log('Shelly Cloud API polling successful:', data);
+          loadDeviceStatuses();
+        }
+      } catch (error) {
+        console.log('Shelly Cloud API polling failed:', error);
+      }
+    }, 120000); // Every 2 minutes
     
     // Set up Supabase real-time subscription for device status
     const deviceChannel = supabase
@@ -81,6 +98,7 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
 
     return () => {
       clearInterval(interval);
+      clearInterval(pollInterval);
       supabase.removeChannel(deviceChannel);
       supabase.removeChannel(alarmChannel);
     };
@@ -232,53 +250,108 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {deviceStatuses.map((device) => (
-            <Card key={device.deviceId} className={`border-l-4 ${device.smoke ? 'border-l-red-500' : device.online ? 'border-l-green-500' : 'border-l-gray-500'}`}>
+            <Card key={device.deviceId} className={`relative overflow-hidden ${device.smoke ? 'border-2 border-red-500 bg-red-50' : 'border border-gray-200 bg-white'}`}>
+              {device.smoke && (
+                <div className="absolute top-0 right-0 w-full h-1 bg-red-500 animate-pulse"></div>
+              )}
+              
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{device.deviceName}</CardTitle>
-                    <CardDescription className="text-xs">{device.deviceId}</CardDescription>
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                      device.smoke ? 'bg-red-100' : device.online ? 'bg-green-100' : 'bg-gray-100'
+                    }`}>
+                      {device.smoke ? (
+                        <Flame className="w-6 h-6 text-red-600" />
+                      ) : device.online ? (
+                        <CheckCircle className="w-6 h-6 text-green-600" />
+                      ) : (
+                        <Activity className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold">{device.deviceName}</CardTitle>
+                      <CardDescription className="text-xs font-mono">{device.deviceId.slice(-8)}</CardDescription>
+                    </div>
                   </div>
-                  <div className={`w-3 h-3 rounded-full ${getStatusColor(device)}`}></div>
+                  <div className={`w-4 h-4 rounded-full ${getStatusColor(device)} ${device.smoke ? 'animate-pulse' : ''}`}></div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  {device.smoke ? (
-                    <Flame className="w-5 h-5 text-red-500" />
-                  ) : (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  )}
-                  <Badge className={device.smoke ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
+              
+              <CardContent className="space-y-4">
+                {/* Status Badge - Shelly Style */}
+                <div className="flex items-center justify-center">
+                  <Badge className={`px-4 py-2 text-sm font-medium ${
+                    device.smoke 
+                      ? 'bg-red-500 text-white border-red-500' 
+                      : device.online 
+                        ? 'bg-green-500 text-white border-green-500' 
+                        : 'bg-gray-500 text-white border-gray-500'
+                  }`}>
                     {getStatusText(device)}
                   </Badge>
                 </div>
 
-                {device.temperature && (
-                  <div className="flex items-center space-x-2 text-sm">
-                    <Thermometer className="w-4 h-4 text-blue-500" />
-                    <span>{device.temperature}°C</span>
+                {/* Critical Alert for Smoke */}
+                {device.smoke && (
+                  <div className="bg-red-500 text-white p-3 rounded-lg text-center animate-pulse">
+                    <div className="flex items-center justify-center space-x-2">
+                      <Flame className="w-5 h-5" />
+                      <span className="font-bold">BRANDLARM!</span>
+                    </div>
+                    <p className="text-sm mt-1">Kontrollera området omedelbart</p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {device.batteryLevel !== undefined && (
-                    <div className="flex items-center space-x-1">
-                      {getBatteryIcon(device.batteryLevel)}
-                      <span>{device.batteryLevel}%</span>
+                {/* Sensor Data Grid - Shelly Style */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Temperature */}
+                  <div className="bg-blue-50 p-3 rounded-lg text-center">
+                    <Thermometer className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                    <div className="text-lg font-semibold text-blue-900">
+                      {device.temperature ? `${device.temperature}°C` : '---'}
                     </div>
-                  )}
-                  
-                  {device.signalStrength !== undefined && (
-                    <div className="flex items-center space-x-1">
-                      {getSignalIcon(device.signalStrength)}
-                      <span>{device.signalStrength}%</span>
-                    </div>
-                  )}
-                </div>
+                    <div className="text-xs text-blue-600">Temperatur</div>
+                  </div>
 
-                <div className="text-xs text-gray-500 border-t pt-2">
-                  Senast sedd: {formatLastSeen(device.lastSeen)}
+                  {/* Battery */}
+                  <div className={`p-3 rounded-lg text-center ${
+                    device.batteryLevel && device.batteryLevel > 50 ? 'bg-green-50' : 'bg-yellow-50'
+                  }`}>
+                    <div className="flex justify-center mb-1">
+                      {getBatteryIcon(device.batteryLevel)}
+                    </div>
+                    <div className={`text-lg font-semibold ${
+                      device.batteryLevel && device.batteryLevel > 50 ? 'text-green-900' : 'text-yellow-900'
+                    }`}>
+                      {device.batteryLevel ? `${device.batteryLevel}%` : '---'}
+                    </div>
+                    <div className={`text-xs ${
+                      device.batteryLevel && device.batteryLevel > 50 ? 'text-green-600' : 'text-yellow-600'
+                    }`}>
+                      Batteri
+                    </div>
+                  </div>
+
+                  {/* Signal Strength */}
+                  <div className="bg-purple-50 p-3 rounded-lg text-center">
+                    <div className="flex justify-center mb-1">
+                      {getSignalIcon(device.signalStrength)}
+                    </div>
+                    <div className="text-lg font-semibold text-purple-900">
+                      {device.signalStrength ? `${device.signalStrength}%` : '---'}
+                    </div>
+                    <div className="text-xs text-purple-600">Signal</div>
+                  </div>
+
+                  {/* Last Seen */}
+                  <div className="bg-gray-50 p-3 rounded-lg text-center">
+                    <Activity className="w-5 h-5 text-gray-600 mx-auto mb-1" />
+                    <div className="text-sm font-semibold text-gray-900">
+                      {formatLastSeen(device.lastSeen)}
+                    </div>
+                    <div className="text-xs text-gray-600">Senast sedd</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -286,20 +359,42 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
         </div>
       )}
 
-      <Card className="border-green-200 bg-green-50">
+      <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
-          <CardTitle className="text-green-800 flex items-center space-x-2">
+          <CardTitle className="text-blue-800 flex items-center space-x-2">
             <Activity className="w-5 h-5" />
-            <span>Om live status</span>
+            <span>Realtidsövervakning</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-green-700">
-          <ul className="space-y-2 text-sm">
-            <li>• <strong>Grön</strong> - Enheten är online och fungerar normalt</li>
-            <li>• <strong>Röd</strong> - RÖK UPPTÄCKT! Omedelbar åtgärd krävs</li>
-            <li>• <strong>Grå</strong> - Enheten är offline eller svarar inte</li>
-            <li>• <strong>Automatisk uppdatering</strong> - Status uppdateras var 30:e sekund</li>
-          </ul>
+        <CardContent className="text-blue-700">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <h4 className="font-semibold mb-2">Statusindikationer:</h4>
+              <ul className="space-y-1">
+                <li className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span>Online och fungerar</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span>BRANDLARM AKTIVERAT</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                  <span>Offline eller inte tillgänglig</span>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Uppdateringsfrekvens:</h4>
+              <ul className="space-y-1">
+                <li>• Realtidsdata via webhook</li>
+                <li>• Backup-polling var 2:a minut</li>
+                <li>• Automatisk uppdatering var 30:e sekund</li>
+                <li>• Fungerar även när du inte är hemma</li>
+              </ul>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
