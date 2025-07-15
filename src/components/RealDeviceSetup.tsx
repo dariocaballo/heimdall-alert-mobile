@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Wifi, Smartphone, CheckCircle, AlertTriangle, Shield, Zap, Router, Settings, Timer } from "lucide-react";
+import { Wifi, Smartphone, CheckCircle, AlertTriangle, Shield, Zap, Router, Settings, Timer, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Network } from '@capacitor/network';
 import { Capacitor } from '@capacitor/core';
 import { ShellyConnectionHelper } from "./ShellyConnectionHelper";
 import { ShellyWiFiConfigurator } from "./ShellyWiFiConfigurator";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RealDeviceSetupProps {
   onConnectionChange: (connected: boolean) => void;
@@ -21,11 +22,13 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
   const [shellyIP, setShellyIP] = useState("192.168.33.1");
   const [isConnectedToShelly, setIsConnectedToShelly] = useState(false);
   const [currentNetwork, setCurrentNetwork] = useState<string>("");
+  const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [isAddingDevice, setIsAddingDevice] = useState(false);
   const { toast } = useToast();
 
   const steps = [
     { id: 1, title: "Förbered enheten", description: "Aktivera Access Point-läge" },
-    { id: 2, title: "Anslut till AP", description: "Anslut till ShellyPlusSmoke-XXXXXX" },
+    { id: 2, title: "Registrera enhet", description: "Automatisk upptäckning och registrering" },
     { id: 3, title: "Konfigurera WiFi", description: "Koppla till ditt hem-WiFi" },
     { id: 4, title: "Konfigurera webhook", description: "Ställ in larmnotiser" },
     { id: 5, title: "Slutför", description: "Installation klar" }
@@ -96,14 +99,128 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
     };
   }, [currentStep, shellyIP, onConnectionChange]);
 
-  const handleShellyConnectionSuccess = () => {
+  const handleShellyConnectionSuccess = async () => {
     setIsConnectedToShelly(true);
-    setCurrentStep(3);
+    // Automatiskt hämta device info när vi är anslutna
+    await fetchDeviceInfo();
+    // Gå inte direkt till steg 3, låt användaren registrera enheten först
   };
 
   const handleShellyConnectionError = (error: string) => {
     setIsConnectedToShelly(false);
     console.error('Shelly connection error:', error);
+  };
+
+  const fetchDeviceInfo = async () => {
+    try {
+      console.log('Hämtar enhetsinfo från Shelly...');
+      const response = await fetch(`http://${shellyIP}/status`, {
+        method: 'GET',
+        timeout: 5000
+      } as any);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Shelly enhetsinfo:', data);
+        
+        // Försök att hämta device ID - olika fält beroende på Shelly-version
+        let deviceId = null;
+        if (data.device && data.device.mac) {
+          deviceId = `shelly-smoke-${data.device.mac.replace(/:/g, '')}`;
+        } else if (data.mac) {
+          deviceId = `shelly-smoke-${data.mac.replace(/:/g, '')}`;
+        } else if (data.wifi && data.wifi.sta && data.wifi.sta.ssid) {
+          // Fallback - använd delar av AP-namn om MAC inte finns
+          deviceId = `shelly-smoke-${Date.now()}`;
+        }
+        
+        setDeviceInfo({
+          ...data,
+          deviceId: deviceId,
+          name: data.device?.hostname || 'Shelly Plus Smoke',
+          model: data.device?.type || 'SHPLG-S',
+          version: data.app || 'Unknown'
+        });
+        
+        console.log('Device ID:', deviceId);
+        
+        toast({
+          title: "✅ Brandvarnare upptäckt!",
+          description: `Enhet: ${deviceId}`,
+        });
+      }
+    } catch (error) {
+      console.error('Fel vid hämtning av enhetsinfo:', error);
+      toast({
+        title: "⚠️ Kunde inte hämta enhetsinfo",
+        description: "Fortsätter med manuell konfiguration",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addDeviceToUser = async () => {
+    if (!deviceInfo?.deviceId) {
+      toast({
+        title: "Fel",
+        description: "Ingen enhet upptäckt att lägga till",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const userCode = localStorage.getItem('user_code');
+    if (!userCode) {
+      toast({
+        title: "Fel", 
+        description: "Ingen användarkod hittad. Logga in igen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingDevice(true);
+    
+    try {
+      console.log('Lägger till enhet:', deviceInfo.deviceId, 'för användare:', userCode);
+      
+      const { data, error } = await supabase.functions.invoke('add_device', {
+        body: {
+          user_code: userCode,
+          device_id: deviceInfo.deviceId
+        }
+      });
+
+      if (error) {
+        console.error('Fel vid tillägg av enhet:', error);
+        toast({
+          title: "Fel vid registrering",
+          description: error.message || "Kunde inte registrera enheten",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Enhet tillagd framgångsrikt:', data);
+      
+      toast({
+        title: "✅ Brandvarnare registrerad!",
+        description: `${deviceInfo.deviceId} är nu kopplad till ditt konto`,
+      });
+      
+      // Fortsätt till WiFi-konfiguration
+      setCurrentStep(3);
+      
+    } catch (error) {
+      console.error('Oväntat fel:', error);
+      toast({
+        title: "Oväntat fel",
+        description: "Något gick fel vid registrering av enheten",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingDevice(false);
+    }
   };
 
   const handleConfigurationComplete = () => {
@@ -274,10 +391,10 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
             <CardHeader>
               <CardTitle className="text-lg flex items-center space-x-2">
                 <Settings className="w-5 h-5" />
-                <span>Steg 2: Anslut till Access Point</span>
+                <span>Steg 2: Anslut och registrera enhet</span>
               </CardTitle>
               <CardDescription>
-                Nu testar vi anslutningen till Shelly Plus Smoke
+                Ansluter till Shelly Plus Smoke och registrerar den automatiskt
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -312,6 +429,54 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
                   onConnectionSuccess={handleShellyConnectionSuccess}
                   onConnectionError={handleShellyConnectionError}
                 />
+
+                {/* Visa enhetsinfo när den är upptäckt */}
+                {deviceInfo && (
+                  <Card className="border-green-200 bg-green-50">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-green-800 flex items-center space-x-2">
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Brandvarnare upptäckt!</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="bg-white p-3 rounded-lg border border-green-200">
+                        <div className="space-y-2 text-sm">
+                          <p><strong>Enhets-ID:</strong> {deviceInfo.deviceId}</p>
+                          <p><strong>Modell:</strong> {deviceInfo.model}</p>
+                          <p><strong>Namn:</strong> {deviceInfo.name}</p>
+                          <p><strong>Version:</strong> {deviceInfo.version}</p>
+                        </div>
+                      </div>
+                      
+                      <Alert>
+                        <Plus className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Automatisk registrering:</strong> Enheten kommer automatiskt registreras på ditt konto när du klickar nedan.
+                        </AlertDescription>
+                      </Alert>
+                      
+                      <Button 
+                        onClick={addDeviceToUser}
+                        disabled={isAddingDevice}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        size="lg"
+                      >
+                        {isAddingDevice ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                            Registrerar enhet...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Lägg till brandvarnare på mitt konto
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </CardContent>
           </Card>
