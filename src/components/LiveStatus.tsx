@@ -35,8 +35,8 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
     // Set up real-time updates
     const interval = setInterval(loadDeviceStatuses, 30000); // Update every 30 seconds
     
-    // Set up Supabase real-time subscription
-    const channel = supabase
+    // Set up Supabase real-time subscription for device status
+    const deviceChannel = supabase
       .channel('device-status-changes')
       .on(
         'postgres_changes',
@@ -53,9 +53,36 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       )
       .subscribe();
 
+    // Set up real-time subscription for alarms
+    const alarmChannel = supabase
+      .channel('alarm-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'alarms',
+          filter: `user_code=eq.${userCode}`
+        },
+        (payload) => {
+          console.log('New alarm detected:', payload);
+          const newAlarm = payload.new as any;
+          if (newAlarm.smoke) {
+            toast({
+              title: "🚨 BRANDLARM AKTIVERAT!",
+              description: `Rök upptäckt på ${newAlarm.device_id}`,
+              variant: "destructive",
+            });
+          }
+          loadDeviceStatuses();
+        }
+      )
+      .subscribe();
+
     return () => {
       clearInterval(interval);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(deviceChannel);
+      supabase.removeChannel(alarmChannel);
     };
   }, [userCode]);
 

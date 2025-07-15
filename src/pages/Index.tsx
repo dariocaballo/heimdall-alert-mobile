@@ -11,7 +11,7 @@ import LiveStatus from "@/components/LiveStatus";
 import AlarmScreen from "@/components/AlarmScreen";
 import CodeLogin from "@/components/CodeLogin";
 import DeviceList from "@/components/DeviceList";
-import FleetManager from "@/components/FleetManager";
+import CloudStatus from "@/components/FleetManager";
 import { useFirebaseToken } from "@/hooks/useFirebaseToken";
 
 interface AlarmData {
@@ -248,7 +248,7 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="fleet" className="flex items-center space-x-2">
               <Users className="w-4 h-4" />
-              <span>Fleet Manager</span>
+              <span>System</span>
             </TabsTrigger>
           </TabsList>
           
@@ -277,7 +277,7 @@ const Index = () => {
 
           <TabsContent value="fleet" className="mt-6">
             <div className="container mx-auto px-4">
-              <FleetManager userCode={userCode} />
+              <CloudStatus userCode={userCode} />
             </div>
           </TabsContent>
 
