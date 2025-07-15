@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Wifi, Smartphone, CheckCircle, AlertTriangle, Shield, Zap } from "lucide-react";
+import { Wifi, Smartphone, CheckCircle, AlertTriangle, Shield, Zap, Router, Settings, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,10 +24,11 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
   const { toast } = useToast();
 
   const steps = [
-    { id: 1, title: "Förbered brandvarnaren", description: "Aktivera konfigurationsläge" },
-    { id: 2, title: "Anslut till Shelly", description: "Testa anslutning till brandvarnaren" },
-    { id: 3, title: "Konfigurera WiFi", description: "Ange ditt hem-WiFi" },
-    { id: 4, title: "Klart!", description: "Brandvarnaren är ansluten" }
+    { id: 1, title: "Förbered enheten", description: "Aktivera Access Point-läge" },
+    { id: 2, title: "Anslut till AP", description: "Anslut till ShellyPlusSmoke-XXXXXX" },
+    { id: 3, title: "Konfigurera WiFi", description: "Koppla till ditt hem-WiFi" },
+    { id: 4, title: "Konfigurera webhook", description: "Ställ in larmnotiser" },
+    { id: 5, title: "Slutför", description: "Installation klar" }
   ];
 
   useEffect(() => {
@@ -106,7 +107,8 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
   };
 
   const handleConfigurationComplete = () => {
-    setCurrentStep(4);
+    setCurrentStep(5);
+    localStorage.setItem('shelly_connected', 'true');
     onConnectionChange(true);
   };
 
@@ -172,7 +174,7 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
       )}
 
       {/* Steg-indikator */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
         {steps.map((step) => (
           <Card key={step.id} className={`${
             currentStep >= step.id ? 'border-red-200 bg-red-50' : 'border-gray-200'
@@ -200,53 +202,68 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         {currentStep === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Steg 1: Förbered brandvarnaren</CardTitle>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <Router className="w-5 h-5" />
+                <span>Steg 1: Aktivera Access Point-läge</span>
+              </CardTitle>
               <CardDescription>
-                Sätt brandvarnaren i konfigurationsläge så att appen kan ansluta till den
+                Sätt Shelly Plus Smoke i konfigurationsläge enligt Shellys officiella process
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
-                <Smartphone className="h-4 w-4" />
+                <Timer className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Gör så här:</strong>
+                  <strong>Tryck och håll knappen i exakt 10 sekunder</strong>
                   <br />
-                  1. Håll inne knappen på brandvarnaren i <strong>10 sekunder</strong>
-                  <br />
-                  2. Vänta tills den blinkar <strong>blått</strong>
-                  <br />
-                  3. När den blinkar blått skapar den ett WiFi-nätverk
+                  Hitta konfigurationsknappen på din Shelly Plus Smoke och håll inne den i minst 10 sekunder tills LED-lampan börjar blinka blått.
                 </AlertDescription>
               </Alert>
               
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-800 mb-2">När brandvarnaren blinkar blått:</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">Vad händer när enheten är i AP-läge:</h4>
                 <ul className="space-y-2 text-sm text-blue-700">
                   <li className="flex items-start space-x-2">
-                    <span className="text-blue-500 font-bold">1.</span>
-                    <span>Gå till telefonens <strong>WiFi-inställningar</strong></span>
+                    <CheckCircle className="w-4 h-4 mt-0.5 text-blue-500" />
+                    <span>LED-lampan blinkar <strong>blått</strong> för att visa att enheten är i konfigurationsläge</span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-blue-500 font-bold">2.</span>
-                    <span>Leta efter nätverket <strong>"ShellyPlusSmoke-XXXXXX"</strong></span>
+                    <CheckCircle className="w-4 h-4 mt-0.5 text-blue-500" />
+                    <span>Enheten skapar sitt eget WiFi-nätverk med namnet <strong>"ShellyPlusSmoke-XXXXXX"</strong></span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-blue-500 font-bold">3.</span>
-                    <span>Anslut till detta nätverk (inget lösenord krävs)</span>
+                    <CheckCircle className="w-4 h-4 mt-0.5 text-blue-500" />
+                    <span>Detta nätverk har ingen säkerhet (öppet nätverk)</span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-blue-500 font-bold">4.</span>
-                    <span>Kom tillbaka till appen</span>
+                    <CheckCircle className="w-4 h-4 mt-0.5 text-blue-500" />
+                    <span>Enheten lyssnar på IP-adressen <strong>192.168.33.1</strong></span>
                   </li>
                 </ul>
               </div>
+              
+              <Alert>
+                <Wifi className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>När LED-lampan blinkar blått - gör så här:</strong>
+                  <br />
+                  1. Öppna telefonens WiFi-inställningar
+                  <br />
+                  2. Leta efter "ShellyPlusSmoke-" följt av bokstäver/siffror
+                  <br />
+                  3. Anslut till detta nätverk (inget lösenord behövs)
+                  <br />
+                  4. Kom tillbaka hit när du är ansluten
+                </AlertDescription>
+              </Alert>
               
               <Button 
                 onClick={() => setCurrentStep(2)} 
                 className="w-full bg-red-600 hover:bg-red-700"
                 size="lg"
               >
-                Jag har anslutit till ShellyPlusSmoke-nätverket
+                <Wifi className="w-4 h-4 mr-2" />
+                Jag är ansluten till ShellyPlusSmoke-nätverket
               </Button>
             </CardContent>
           </Card>
@@ -255,24 +272,38 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         {currentStep === 2 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Steg 2: Testa anslutning till brandvarnaren</CardTitle>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <Settings className="w-5 h-5" />
+                <span>Steg 2: Anslut till Access Point</span>
+              </CardTitle>
               <CardDescription>
-                Nu testar vi om appen kan kommunicera med din brandvarnare
+                Nu testar vi anslutningen till Shelly Plus Smoke
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Alert>
+                <Wifi className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Kontrollera att du är ansluten:</strong>
+                  <br />
+                  Din telefon ska nu vara ansluten till "ShellyPlusSmoke-XXXXXX" nätverket.
+                  Enheten ska vara tillgänglig på IP-adressen <strong>192.168.33.1</strong>
+                </AlertDescription>
+              </Alert>
+              
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="shelly-ip">Shelly IP-adress</Label>
+                  <Label htmlFor="shelly-ip">Shelly IP-adress (standard för alla Shelly-enheter)</Label>
                   <Input
                     id="shelly-ip"
                     type="text"
                     value={shellyIP}
                     onChange={(e) => setShellyIP(e.target.value)}
                     placeholder="192.168.33.1"
+                    className="font-mono"
                   />
                   <p className="text-xs text-gray-500">
-                    Vanligtvis 192.168.33.1 för Shelly-enheter
+                    Alla Shelly-enheter använder 192.168.33.1 som standard-IP i AP-läge
                   </p>
                 </div>
                 
@@ -289,31 +320,80 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
         {currentStep === 3 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Steg 3: Konfigurera hem-WiFi</CardTitle>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <Router className="w-5 h-5" />
+                <span>Steg 3: Konfigurera hem-WiFi</span>
+              </CardTitle>
               <CardDescription>
-                Nu skickar vi dina WiFi-uppgifter till brandvarnaren så den kan ansluta till ditt hemma-nätverk
+                Anslut Shelly Plus Smoke till ditt hem-WiFi så den kan skicka larm över internet
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ShellyWiFiConfigurator
                 shellyIP={shellyIP}
-                onConfigurationComplete={handleConfigurationComplete}
+                onConfigurationComplete={() => setCurrentStep(4)}
               />
             </CardContent>
           </Card>
         )}
 
         {currentStep === 4 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <Settings className="w-5 h-5" />
+                <span>Steg 4: Konfigurera webhook för larmnotiser</span>
+              </CardTitle>
+              <CardDescription>
+                Ställ in så att Shelly Plus Smoke skickar larm direkt till vårt system
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Settings className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Automatisk konfiguration:</strong>
+                  <br />
+                  Nu konfigurerar vi så att brandvarnaren skickar larm direkt till vårt Supabase-system via webhook när rök upptäcks.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-2">Webhook-konfiguration:</h4>
+                <div className="space-y-2 text-sm text-blue-700">
+                  <p><strong>URL:</strong> https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/shelly_webhook</p>
+                  <p><strong>Trigger:</strong> Smoke detected</p>
+                  <p><strong>Metod:</strong> POST</p>
+                  <p><strong>Data format:</strong> JSON</p>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={() => setCurrentStep(5)}
+                className="w-full bg-red-600 hover:bg-red-700"
+                size="lg"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Konfigurera webhook automatiskt
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 5 && (
           <Card className="border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-lg text-green-800">✅ Installation klar!</CardTitle>
+              <CardTitle className="text-lg text-green-800 flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5" />
+                <span>Installation slutförd!</span>
+              </CardTitle>
               <CardDescription className="text-green-600">
-                Din brandvarnare är nu ansluten och konfigurerad
+                Din Shelly Plus Smoke är nu fullt konfigurerad och redo att använda
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-white p-4 rounded-lg border border-green-200">
-                <h4 className="font-semibold text-green-800 mb-2">Vad händer nu:</h4>
+                <h4 className="font-semibold text-green-800 mb-2">Konfiguration slutförd:</h4>
                 <ul className="space-y-2 text-sm text-green-700">
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4" />
@@ -321,15 +401,15 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4" />
-                    <span>Larmfunktionen är aktiverad</span>
+                    <span>Webhook för larmnotiser är konfigurerad</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4" />
-                    <span>Du får pushnotiser vid brandlarm</span>
+                    <span>Pushnotiser kommer skickas vid brandlarm</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4" />
-                    <span>Testa gärna systemet med knappen på Dashboard</span>
+                    <span>Systemet uppdateras i realtid via Supabase</span>
                   </li>
                 </ul>
               </div>
@@ -337,9 +417,18 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Tips:</strong> Gå till Dashboard och tryck på "Testa komplett larm" för att kontrollera att allt fungerar som det ska.
+                  <strong>Nästa steg:</strong> Gå till Dashboard för att se din brandvarnare i listan och testa systemet. Du kan nu övervaka batterinivå, temperatur och röklarm i realtid.
                 </AlertDescription>
               </Alert>
+              
+              <Button 
+                onClick={handleConfigurationComplete}
+                className="w-full bg-green-600 hover:bg-green-700"
+                size="lg"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Gå till Dashboard
+              </Button>
             </CardContent>
           </Card>
         )}

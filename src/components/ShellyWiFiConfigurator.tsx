@@ -43,15 +43,21 @@ export const ShellyWiFiConfigurator = ({ shellyIP, onConfigurationComplete }: Sh
 
       console.log(`Configuring Shelly WiFi: SSID=${homeWifiSSID}`);
 
-      const wifiConfigResponse = await fetch(`http://${shellyIP}/settings/ap`, {
+      // Använd den korrekta Shelly Plus API för WiFi-konfiguration
+      const wifiConfigResponse = await fetch(`http://${shellyIP}/rpc/WiFi.SetConfig`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          'wifi_ap.ssid': homeWifiSSID,
-          'wifi_ap.key': homeWifiPassword,
-          'wifi_ap.enable': 'true'
+        body: JSON.stringify({
+          id: 1,
+          config: {
+            sta: {
+              ssid: homeWifiSSID,
+              pass: homeWifiPassword,
+              enable: true
+            }
+          }
         })
       });
 
@@ -59,35 +65,60 @@ export const ShellyWiFiConfigurator = ({ shellyIP, onConfigurationComplete }: Sh
         throw new Error(`WiFi-konfiguration misslyckades: ${wifiConfigResponse.status}`);
       }
 
+      const wifiResult = await wifiConfigResponse.json();
+      console.log('WiFi config result:', wifiResult);
+
       setConfigurationProgress(50);
 
-      // Steg 2: Konfigurera larm-webhook
+      // Steg 2: Konfigurera larm-webhook för Shelly Plus Smoke
       setConfigurationStep("Konfigurerar larmfunktion...");
       
-      const alarmConfigResponse = await fetch(`http://${shellyIP}/settings/actions`, {
+      // Använd Shelly Plus API för att konfigurera webhook
+      const webhookConfigResponse = await fetch(`http://${shellyIP}/rpc/Webhook.SetConfig`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          'actions.smoke_detected.enabled': 'true',
-          'actions.smoke_detected.urls[]': 'https://us-central1-id-bevakarna.cloudfunctions.net/sendTestAlarm',
-          'actions.smoke_detected.method': 'POST',
-          'actions.smoke_detected.body': JSON.stringify({
-            deviceId: 'Shelly Plus Smoke',
-            timestamp: '${timestamp}',
-            alarm_type: 'smoke_detected'
-          })
+        body: JSON.stringify({
+          id: 1,
+          config: {
+            name: "smoke_alarm_webhook",
+            enable: true,
+            event: "smoke.on",
+            urls: ["https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/shelly_webhook"],
+            ssl_ca: "*",
+            active_between: []
+          }
         })
       });
 
-      if (!alarmConfigResponse.ok) {
-        throw new Error(`Larm-konfiguration misslyckades: ${alarmConfigResponse.status}`);
+      if (!webhookConfigResponse.ok) {
+        throw new Error(`Webhook-konfiguration misslyckades: ${webhookConfigResponse.status}`);
       }
 
-      setConfigurationProgress(80);
+      const webhookResult = await webhookConfigResponse.json();
+      console.log('Webhook config result:', webhookResult);
 
-      // Steg 3: Spara konfiguration
+      setConfigurationProgress(75);
+
+      // Steg 3: Återstarta enheten för att tillämpa inställningarna
+      setConfigurationStep("Startar om enheten...");
+      
+      try {
+        await fetch(`http://${shellyIP}/rpc/Shelly.Reboot`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: 1 })
+        });
+      } catch (error) {
+        console.log('Reboot command sent, connection will be lost as expected');
+      }
+
+      setConfigurationProgress(90);
+
+      // Steg 4: Spara konfiguration lokalt
       setConfigurationStep("Sparar inställningar...");
       
       localStorage.setItem('shelly_connected', 'true');

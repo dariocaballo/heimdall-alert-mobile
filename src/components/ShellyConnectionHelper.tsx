@@ -33,12 +33,14 @@ export const ShellyConnectionHelper = ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch(`http://${shellyIP}/status`, {
-        method: 'GET',
+      // Test med Shelly Plus API
+      const response = await fetch(`http://${shellyIP}/rpc/Shelly.GetInfo`, {
+        method: 'POST',
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: 1 })
       });
 
       clearTimeout(timeoutId);
@@ -48,19 +50,23 @@ export const ShellyConnectionHelper = ({
       }
 
       const data = await response.json();
-      console.log('Shelly status response:', data);
+      console.log('Shelly GetInfo response:', data);
 
-      // Verify it's actually a Shelly device
-      if (!data.device || !data.device.type) {
+      // Verify it's a Shelly Plus Smoke device
+      if (!data.result || !data.result.app) {
         throw new Error('Enheten svarar men verkar inte vara en Shelly-enhet');
+      }
+
+      if (!data.result.app.includes('smoke') && !data.result.app.includes('Smoke')) {
+        console.warn('Warning: This might not be a Shelly Plus Smoke device');
       }
 
       setConnectionStatus('success');
       onConnectionSuccess();
       
       toast({
-        title: "✅ Shelly funnen!",
-        description: `Ansluten till ${data.device.hostname || data.device.type}`,
+        title: "✅ Shelly Plus Smoke funnen!",
+        description: `Ansluten till ${data.result.name || data.result.id || 'Shelly Plus Smoke'}`,
       });
 
     } catch (error) {
