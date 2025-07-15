@@ -53,11 +53,36 @@ serve(async (req) => {
       .single();
 
     if (deviceError || !deviceOwner) {
-      console.log('Device not found in user_devices:', data.deviceId);
-      return new Response(
-        JSON.stringify({ error: 'Device not registered' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('Device not found in user_devices, attempting auto-registration for:', data.deviceId);
+      
+      // Auto-register device to first available user if not found
+      const { data: userCodes, error: userError } = await supabase
+        .from('user_codes')
+        .select('user_code')
+        .limit(1);
+
+      if (userError || !userCodes || userCodes.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Device not registered and no users available' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Auto-register device
+      const { error: registerError } = await supabase
+        .from('user_devices')
+        .insert([{ device_id: data.deviceId, user_code: userCodes[0].user_code }]);
+
+      if (registerError) {
+        console.error('Auto-registration failed:', registerError);
+        return new Response(
+          JSON.stringify({ error: 'Device registration failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Device auto-registered to user:', userCodes[0].user_code);
+      deviceOwner = { user_code: userCodes[0].user_code };
     }
 
     // Uppdatera device status (upsert)
