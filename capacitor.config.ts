@@ -17,6 +17,14 @@ const config: CapacitorConfig = {
       launchShowDuration: 2000,
       backgroundColor: "#dc2626",
       showSpinner: false
+    },
+    BluetoothLe: {
+      displayStrings: {
+        scanning: "Söker efter enheter...",
+        cancel: "Avbryt",
+        availableDevices: "Tillgängliga enheter",
+        noDeviceFound: "Inga enheter hittades"
+      }
     }
   }
 };

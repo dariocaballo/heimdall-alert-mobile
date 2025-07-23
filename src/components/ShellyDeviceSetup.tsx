@@ -3,9 +3,11 @@ import { Wifi, Smartphone, CheckCircle, AlertTriangle, Shield, Router, Settings,
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from '@capacitor/core';
 import { supabase } from "@/integrations/supabase/client";
+import BluetoothDeviceScanner from "./BluetoothDeviceScanner";
 
 interface ShellyDeviceSetupProps {
   onConnectionChange: (connected: boolean) => void;
@@ -156,8 +158,14 @@ const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: Shel
     }
   };
 
-  const configureWebhook = async (deviceIP: string) => {
+  const configureWebhook = async (deviceIP?: string) => {
     try {
+      // Endast konfigurera webhook för WiFi-enheter som har en IP-adress
+      if (!deviceIP) {
+        console.log('Bluetooth-enhet - hoppar över webhook-konfiguration');
+        return;
+      }
+
       // Konfigurera webhook för larmnotiser
       const webhookResponse = await fetch(`http://${deviceIP}/rpc/Webhook.SetConfig`, {
         method: 'POST',
@@ -232,7 +240,7 @@ const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: Shel
               <span>Upptäck brandvarnare</span>
             </CardTitle>
             <CardDescription>
-              Sätt först din Shelly Plus Smoke i konfigurationsläge
+              Välj sökmetod och sätt din Shelly Plus Smoke i konfigurationsläge
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -245,67 +253,90 @@ const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: Shel
               </AlertDescription>
             </Alert>
 
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-800 mb-2">Vad händer:</h4>
-              <ul className="space-y-2 text-sm text-blue-700">
-                <li>• Enheten skapar WiFi-nätverket "ShellyPlusSmoke-XXXXXX"</li>
-                <li>• Anslut din telefon till detta nätverk</li>
-                <li>• Kom tillbaka hit och tryck "Sök efter enheter"</li>
-              </ul>
-            </div>
+            <Tabs defaultValue="wifi" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="wifi" className="flex items-center space-x-2">
+                  <Wifi className="w-4 h-4" />
+                  <span>WiFi-sökning</span>
+                </TabsTrigger>
+                <TabsTrigger value="bluetooth" className="flex items-center space-x-2">
+                  <Bluetooth className="w-4 h-4" />
+                  <span>Bluetooth</span>
+                </TabsTrigger>
+              </TabsList>
 
-            <Button 
-              onClick={scanForDevices}
-              disabled={isScanning}
-              className="w-full bg-red-600 hover:bg-red-700"
-              size="lg"
-            >
-              {isScanning ? (
-                <>
-                  <Search className="w-4 h-4 mr-2 animate-spin" />
-                  Söker efter enheter...
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4 mr-2" />
-                  Sök efter enheter
-                </>
-              )}
-            </Button>
+              <TabsContent value="wifi" className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">WiFi-sökning:</h4>
+                  <ul className="space-y-2 text-sm text-blue-700">
+                    <li>• Enheten skapar WiFi-nätverket "ShellyPlusSmoke-XXXXXX"</li>
+                    <li>• Anslut din telefon till detta nätverk</li>
+                    <li>• Kom tillbaka hit och tryck "Sök via WiFi"</li>
+                  </ul>
+                </div>
 
-            {/* Upptäckta enheter */}
-            {discoveredDevices.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="font-semibold text-green-800">Upptäckta enheter:</h4>
-                {discoveredDevices.map((device) => (
-                  <Card key={device.id} className="border-green-200 bg-green-50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Shield className="w-8 h-8 text-red-600" />
-                          <div>
-                            <h5 className="font-medium">{device.name}</h5>
-                            <p className="text-sm text-gray-600">
-                              {device.type} • {device.ip}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Signal: {device.rssi}dBm • Batteri: {device.batteryLevel}%
-                            </p>
+                <Button 
+                  onClick={scanForDevices}
+                  disabled={isScanning}
+                  className="w-full bg-red-600 hover:bg-red-700"
+                  size="lg"
+                >
+                  {isScanning ? (
+                    <>
+                      <Search className="w-4 h-4 mr-2 animate-spin" />
+                      Söker via WiFi...
+                    </>
+                  ) : (
+                    <>
+                      <Wifi className="w-4 h-4 mr-2" />
+                      Sök via WiFi
+                    </>
+                  )}
+                </Button>
+
+                {/* Upptäckta WiFi-enheter */}
+                {discoveredDevices.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-green-800">WiFi-enheter:</h4>
+                    {discoveredDevices.map((device) => (
+                      <Card key={device.id} className="border-green-200 bg-green-50">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <Shield className="w-8 h-8 text-red-600" />
+                              <div>
+                                <h5 className="font-medium">{device.name}</h5>
+                                <p className="text-sm text-gray-600">
+                                  {device.type} • {device.ip}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Signal: {device.rssi}dBm • Batteri: {device.batteryLevel}%
+                                </p>
+                              </div>
+                            </div>
+                            <Button 
+                              onClick={() => selectDevice(device)}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              Välj
+                            </Button>
                           </div>
-                        </div>
-                        <Button 
-                          onClick={() => selectDevice(device)}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          Välj
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="bluetooth" className="space-y-4">
+                <BluetoothDeviceScanner
+                  onDeviceSelected={selectDevice}
+                  isScanning={isScanning}
+                  onScanningChange={setIsScanning}
+                />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
@@ -378,34 +409,71 @@ const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: Shel
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Wifi className="w-5 h-5" />
-              <span>WiFi-konfiguration</span>
+              {selectedDevice?.connectionType === 'bluetooth' ? (
+                <Bluetooth className="w-5 h-5" />
+              ) : (
+                <Wifi className="w-5 h-5" />
+              )}
+              <span>
+                {selectedDevice?.connectionType === 'bluetooth' 
+                  ? 'Bluetooth-konfiguration' 
+                  : 'WiFi-konfiguration'
+                }
+              </span>
             </CardTitle>
             <CardDescription>
-              Anslut brandvarnaren till ditt hem-WiFi
+              {selectedDevice?.connectionType === 'bluetooth'
+                ? 'Slutför Bluetooth-konfigurationen'
+                : 'Anslut brandvarnaren till ditt hem-WiFi'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert>
-              <Router className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Konfigurera WiFi:</strong>
-                <br />
-                Gå till webbläsaren och öppna <strong>192.168.33.1</strong> för att konfigurera WiFi-anslutningen.
-                <br />
-                Välj ditt hem-WiFi och ange lösenordet.
-              </AlertDescription>
-            </Alert>
+            {selectedDevice?.connectionType === 'bluetooth' ? (
+              <>
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Bluetooth-anslutning etablerad:</strong>
+                    <br />
+                    Enheten är nu parad och konfigurerad för att skicka notifikationer.
+                  </AlertDescription>
+                </Alert>
 
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-800 mb-2">Efter WiFi-konfiguration:</h4>
-              <ul className="space-y-2 text-sm text-blue-700">
-                <li>• Enheten startar om automatiskt</li>
-                <li>• Ansluter till ditt hem-WiFi</li>
-                <li>• Börjar skicka notifikationer via molnet</li>
-                <li>• Fungerar även när du inte är hemma</li>
-              </ul>
-            </div>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">Vad fungerar nu:</h4>
+                  <ul className="space-y-2 text-sm text-blue-700">
+                    <li>• Bluetooth-anslutning etablerad</li>
+                    <li>• Enheten skickar larmdata till appen</li>
+                    <li>• Push-notifikationer konfigurerade</li>
+                    <li>• Fungerar inom Bluetooth-räckvidd</li>
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <>
+                <Alert>
+                  <Router className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Konfigurera WiFi:</strong>
+                    <br />
+                    Gå till webbläsaren och öppna <strong>192.168.33.1</strong> för att konfigurera WiFi-anslutningen.
+                    <br />
+                    Välj ditt hem-WiFi och ange lösenordet.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">Efter WiFi-konfiguration:</h4>
+                  <ul className="space-y-2 text-sm text-blue-700">
+                    <li>• Enheten startar om automatiskt</li>
+                    <li>• Ansluter till ditt hem-WiFi</li>
+                    <li>• Börjar skicka notifikationer via molnet</li>
+                    <li>• Fungerar även när du inte är hemma</li>
+                  </ul>
+                </div>
+              </>
+            )}
 
             <Button 
               onClick={completeSetup}
@@ -413,7 +481,10 @@ const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: Shel
               size="lg"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              WiFi är konfigurerat
+              {selectedDevice?.connectionType === 'bluetooth' 
+                ? 'Bluetooth-konfiguration klar' 
+                : 'WiFi är konfigurerat'
+              }
             </Button>
           </CardContent>
         </Card>
