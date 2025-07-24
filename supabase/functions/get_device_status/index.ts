@@ -14,30 +14,50 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Create Supabase client with user's JWT
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
-    if (req.method !== 'POST') {
+    // Get JWT token from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Set the JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (req.method !== 'GET') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
         { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { user_code } = await req.json();
+    console.log('Getting device status for user:', user.id);
 
-    if (!user_code) {
-      return new Response(
-        JSON.stringify({ error: 'User code is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Hämta device status via view
+    // Get device status for the authenticated user only
     const { data: devices, error } = await supabase
       .from('device_overview')
       .select('*')
-      .eq('user_code', user_code);
+      .eq('user_id', user.id);
 
     if (error) {
       console.error('Error fetching device status:', error);
@@ -47,7 +67,7 @@ serve(async (req) => {
       );
     }
 
-    // Formatera data för appen
+    // Format data for the app
     const formattedDevices = devices?.map(device => ({
       device_id: device.device_id,
       name: device.device_id?.slice(-4) || 'Unknown',

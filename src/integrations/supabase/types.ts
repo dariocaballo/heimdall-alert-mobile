@@ -226,6 +226,7 @@ export type Database = {
           smoke: boolean | null
           temperature: number | null
           user_code: string | null
+          user_id: string | null
         }
         Relationships: []
       }

@@ -14,8 +14,35 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Create Supabase client with user's JWT
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    // Get JWT token from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Set the JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (req.method !== 'POST') {
       return new Response(
@@ -24,27 +51,27 @@ serve(async (req) => {
       );
     }
 
-    const { user_code, fcm_token, device_info } = await req.json();
+    const { fcm_token, device_info } = await req.json();
 
-    if (!user_code || !fcm_token) {
+    if (!fcm_token) {
       return new Response(
-        JSON.stringify({ error: 'User code and FCM token are required' }),
+        JSON.stringify({ error: 'FCM token is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Saving FCM token for user_code:', user_code);
+    console.log('Saving FCM token for user:', user.id);
 
-    // Spara eller uppdatera FCM token
+    // Save or update FCM token with authenticated user ID
     const { error } = await supabase
       .from('fcm_tokens')
       .upsert({
-        user_code,
+        user_id: user.id,
         fcm_token,
         device_info: device_info || {},
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'fcm_token',
+        onConflict: 'user_id,fcm_token',
         ignoreDuplicates: false
       });
 

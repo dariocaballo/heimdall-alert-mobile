@@ -28,19 +28,19 @@ enabled = true
 port = 54327
 
 [functions.add_device]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get_alarm_history]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get_device_status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.remove_device]
-verify_jwt = false
+verify_jwt = true
 
 [functions.save_fcm_token]
-verify_jwt = false
+verify_jwt = true
 
 [functions.shelly_webhook]
 verify_jwt = false

@@ -1,6 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { Bell, Shield, History, Settings, AlertTriangle, CheckCircle, Phone, Users, Activity } from "lucide-react";
+import { Bell, Shield, History, Settings, AlertTriangle, CheckCircle, Phone, Users, Activity, LogOut } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+import { Navigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +23,7 @@ interface AlarmData {
 }
 
 const Index = () => {
+  const { user, loading, signOut } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userDevices, setUserDevices] = useState<string[]>([]);
   const [userCode, setUserCode] = useState<string>("");
@@ -103,11 +106,13 @@ const Index = () => {
     });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     setIsAuthenticated(false);
     setUserDevices([]);
     setUserCode("");
     setIsConnected(false);
+    localStorage.clear();
   };
 
   const handleDevicesUpdate = (newDevices: string[]) => {
@@ -190,9 +195,45 @@ const Index = () => {
     });
   };
 
-  // Show login screen if not authenticated
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Laddar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to auth if not authenticated
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Show legacy login for backwards compatibility
   if (!isAuthenticated) {
-    return <CodeLogin onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Välkommen tillbaka!</CardTitle>
+            <CardDescription>
+              Du är inloggad med ditt konto. Vill du använda det nya systemet?
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Button onClick={() => setIsAuthenticated(true)} className="w-full">
+                Fortsätt till huvudsidan
+              </Button>
+              <CodeLogin onLoginSuccess={handleLoginSuccess} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Show device list if authenticated
@@ -222,11 +263,20 @@ const Index = () => {
                   <p className="text-sm text-muted-foreground">Professionellt Brandskydd</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <Badge variant="outline" className="text-green-700 border-green-300">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Ansluten
                 </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center space-x-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logga ut</span>
+                </Button>
               </div>
             </div>
           </div>
