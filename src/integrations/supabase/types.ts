@@ -29,6 +29,7 @@ export type Database = {
           temp: number | null
           timestamp: string | null
           user_code: string | null
+          user_id: string | null
         }
         Insert: {
           acknowledged?: boolean | null
@@ -44,6 +45,7 @@ export type Database = {
           temp?: number | null
           timestamp?: string | null
           user_code?: string | null
+          user_id?: string | null
         }
         Update: {
           acknowledged?: boolean | null
@@ -59,6 +61,7 @@ export type Database = {
           temp?: number | null
           timestamp?: string | null
           user_code?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -76,6 +79,7 @@ export type Database = {
           temperature: number | null
           updated_at: string
           user_code: string
+          user_id: string | null
         }
         Insert: {
           battery_level?: number | null
@@ -90,6 +94,7 @@ export type Database = {
           temperature?: number | null
           updated_at?: string
           user_code: string
+          user_id?: string | null
         }
         Update: {
           battery_level?: number | null
@@ -104,6 +109,7 @@ export type Database = {
           temperature?: number | null
           updated_at?: string
           user_code?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -115,6 +121,7 @@ export type Database = {
           id: string
           updated_at: string
           user_code: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -123,6 +130,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_code: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -131,6 +139,31 @@ export type Database = {
           id?: string
           updated_at?: string
           user_code?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          id: string
+          updated_at: string | null
+          user_code: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          id: string
+          updated_at?: string | null
+          user_code?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_code?: string | null
         }
         Relationships: []
       }
@@ -161,18 +194,21 @@ export type Database = {
           device_id: string
           id: string
           user_code: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
           device_id: string
           id?: string
           user_code: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
           device_id?: string
           id?: string
           user_code?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -195,7 +231,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_user_by_code: {
+        Args: { code: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
