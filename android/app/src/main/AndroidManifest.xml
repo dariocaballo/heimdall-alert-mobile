@@ -12,7 +12,7 @@
         <activity
             android:exported="true"
             android:launchMode="singleTask"
-            android:name="com.idbevakarna.idbevakarna.MainActivity"
+            android:name=".MainActivity"
             android:theme="@style/AppTheme.NoActionBarLaunch">
 
             <intent-filter>
