@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, Loader } from "lucide-react";
 import TestConnection from "./TestConnection";
+import { useAuth } from "@/components/AuthProvider";
 
 interface CodeLoginProps {
   onLoginSuccess: (devices: string[], userCode: string) => void;
@@ -16,6 +17,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const { toast } = useToast();
+  const { signUp, signIn } = useAuth();
 
   // Manuell lista med testdata som backup
   const manualTestCodes = {
@@ -25,7 +27,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
     'XYZ789': ['shelly-smoke-xyz-01']
   };
 
-  const verifyCodeManually = (inputCode: string) => {
+  const verifyCodeManually = async (inputCode: string) => {
     const upperCode = inputCode.toUpperCase();
     console.log('Manual verification for code:', upperCode);
     
@@ -33,17 +35,36 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       const devices = manualTestCodes[upperCode as keyof typeof manualTestCodes];
       console.log('Manual code found:', upperCode, 'devices:', devices);
       
-      // Spara i localStorage
-      localStorage.setItem('user_code', upperCode);
-      localStorage.setItem('user_devices', JSON.stringify(devices));
+      // Create or sign in user with Supabase auth
+      const email = `${upperCode.toLowerCase()}@idbevakarna.local`;
+      const password = `${upperCode}123456`;
       
-      toast({
-        title: "Inloggning lyckad! (Manuell)",
-        description: `${devices.length} brandvarnare hittade`,
-      });
-      
-      onLoginSuccess(devices, upperCode);
-      return true;
+      try {
+        // Try to sign in first
+        let authResult = await signIn(email, password);
+        
+        // If sign in fails, try to sign up
+        if (authResult.error) {
+          console.log('Manual: Sign in failed, trying sign up...');
+          authResult = await signUp(email, password, upperCode);
+        }
+        
+        if (!authResult.error) {
+          // Spara i localStorage
+          localStorage.setItem('user_code', upperCode);
+          localStorage.setItem('user_devices', JSON.stringify(devices));
+          
+          toast({
+            title: "Inloggning lyckad!",
+            description: `${devices.length} brandvarnare hittade`,
+          });
+          
+          onLoginSuccess(devices, upperCode);
+          return true;
+        }
+      } catch (error) {
+        console.error('Manual auth error:', error);
+      }
     }
     return false;
   };
@@ -89,16 +110,31 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
           if (!devicesError && devices) {
             const deviceIds = devices.map(d => d.device_id);
             
-            localStorage.setItem('user_code', upperCode);
-            localStorage.setItem('user_devices', JSON.stringify(deviceIds));
+            // Create or sign in user with Supabase auth
+            const email = `${upperCode.toLowerCase()}@idbevakarna.local`;
+            const password = `${upperCode}123456`;
             
-            toast({
-              title: "Inloggning lyckad! (Supabase)",
-              description: `${deviceIds.length} brandvarnare hittade`,
-            });
+            // Try to sign in first
+            let authResult = await signIn(email, password);
             
-            onLoginSuccess(deviceIds, upperCode);
-            return;
+            // If sign in fails, try to sign up
+            if (authResult.error) {
+              console.log('Sign in failed, trying sign up...');
+              authResult = await signUp(email, password, upperCode);
+            }
+            
+            if (!authResult.error) {
+              localStorage.setItem('user_code', upperCode);
+              localStorage.setItem('user_devices', JSON.stringify(deviceIds));
+              
+              toast({
+                title: "Inloggning lyckad!",
+                description: `${deviceIds.length} brandvarnare hittade`,
+              });
+              
+              onLoginSuccess(deviceIds, upperCode);
+              return;
+            }
           }
         }
       } catch (supabaseError) {
@@ -107,7 +143,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       
       // Fallback till manuell verifiering
       console.log('Falling back to manual verification...');
-      if (verifyCodeManually(upperCode)) {
+      if (await verifyCodeManually(upperCode)) {
         return;
       }
       
@@ -122,7 +158,7 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       console.error('Verification error:', error);
       
       // Försök manuell verifiering som sista utväg
-      if (verifyCodeManually(code.toUpperCase())) {
+      if (await verifyCodeManually(code.toUpperCase())) {
         return;
       }
       

@@ -207,33 +207,9 @@ const Index = () => {
     );
   }
 
-  // Redirect to auth if not authenticated
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  // Show legacy login for backwards compatibility
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Välkommen tillbaka!</CardTitle>
-            <CardDescription>
-              Du är inloggad med ditt konto. Vill du använda det nya systemet?
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Button onClick={() => setIsAuthenticated(true)} className="w-full">
-                Fortsätt till huvudsidan
-              </Button>
-              <CodeLogin onLoginSuccess={handleLoginSuccess} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Show code login if not authenticated with Supabase OR with user code
+  if (!user || !isAuthenticated) {
+    return <CodeLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
   // Show device list if authenticated

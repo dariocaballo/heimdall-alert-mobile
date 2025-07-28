@@ -37,12 +37,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (event === 'SIGNED_IN' && session?.user) {
           setTimeout(async () => {
             try {
-              await supabase.from('profiles').insert({
+              const { error } = await supabase.from('profiles').upsert({
                 id: session.user.id,
-                display_name: session.user.email?.split('@')[0]
-              });
+                display_name: session.user.email?.split('@')[0],
+                user_code: session.user.user_metadata?.user_code
+              }, { onConflict: 'id' });
+              
+              if (error) {
+                console.error('Error creating/updating profile:', error);
+              }
             } catch (error) {
-              console.error('Error creating profile:', error);
+              console.error('Error in profile upsert:', error);
             }
           }, 0);
         }
