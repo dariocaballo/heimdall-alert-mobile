@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import AlarmHistory from "@/components/AlarmHistory";
 import LiveStatus from "@/components/LiveStatus";
 import AlarmScreen from "@/components/AlarmScreen";
-import CodeLogin from "@/components/CodeLogin";
+import SimpleCodeLogin from "@/components/SimpleCodeLogin";
 import DeviceList from "@/components/DeviceList";
 import CloudStatus from "@/components/FleetManager";
 import { useFirebaseToken } from "@/hooks/useFirebaseToken";
@@ -207,9 +207,9 @@ const Index = () => {
     );
   }
 
-  // Show code login if not authenticated with Supabase OR with user code
-  if (!user || !isAuthenticated) {
-    return <CodeLogin onLoginSuccess={handleLoginSuccess} />;
+  // Show code login if not authenticated with user code
+  if (!isAuthenticated) {
+    return <SimpleCodeLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
   // Show device list if authenticated
