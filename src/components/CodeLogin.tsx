@@ -29,7 +29,9 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
 
   const verifyCodeManually = async (inputCode: string) => {
     const upperCode = inputCode.toUpperCase();
+    console.log('=== MANUAL VERIFICATION ===');
     console.log('Manual verification for code:', upperCode);
+    console.log('Available codes:', Object.keys(manualTestCodes));
     
     if (manualTestCodes[upperCode as keyof typeof manualTestCodes]) {
       const devices = manualTestCodes[upperCode as keyof typeof manualTestCodes];
@@ -39,14 +41,18 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
       const email = `${upperCode.toLowerCase()}@idbevakarna.local`;
       const password = `${upperCode}123456`;
       
+      console.log('Attempting auth with:', { email, password });
+      
       try {
         // Try to sign in first
         let authResult = await signIn(email, password);
+        console.log('Sign in result:', authResult);
         
         // If sign in fails, try to sign up
         if (authResult.error) {
           console.log('Manual: Sign in failed, trying sign up...');
           authResult = await signUp(email, password, upperCode);
+          console.log('Sign up result:', authResult);
         }
         
         if (!authResult.error) {
@@ -70,8 +76,12 @@ const CodeLogin = ({ onLoginSuccess }: CodeLoginProps) => {
   };
 
   const verifyCode = async () => {
+    console.log('=== STARTING CODE VERIFICATION ===');
+    console.log('Input code:', code);
+    
     // Validate 6-character alphanumeric code
     if (!/^[A-Za-z0-9]{6}$/.test(code)) {
+      console.log('Code validation failed - wrong format');
       toast({
         title: "Felaktig kod",
         description: "Koden måste vara exakt 6 tecken (bokstäver och/eller siffror)",
