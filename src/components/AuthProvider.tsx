@@ -29,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -56,33 +56,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+    }).catch((error) => {
+      console.error('Error getting session:', error);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { error };
+    } catch (error) {
+      console.error('Network error during sign in:', error);
+      return { error: { message: 'Nätverksfel: Kunde inte ansluta till servern' } };
+    }
   };
 
   const signUp = async (email: string, password: string, userCode?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          user_code: userCode
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            user_code: userCode
+          }
         }
-      }
-    });
-    return { error };
+      });
+      return { error };
+    } catch (error) {
+      console.error('Network error during sign up:', error);
+      return { error: { message: 'Nätverksfel: Kunde inte ansluta till servern' } };
+    }
   };
 
   const signOut = async () => {
