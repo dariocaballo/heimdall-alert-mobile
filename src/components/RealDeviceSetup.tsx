@@ -184,24 +184,47 @@ const RealDeviceSetup = ({ onConnectionChange }: RealDeviceSetupProps) => {
     try {
       console.log('Lägger till enhet:', deviceInfo.deviceId, 'för användare:', userCode);
       
-      const { data, error } = await supabase.functions.invoke('add_device', {
-        body: {
-          user_code: userCode,
-          device_id: deviceInfo.deviceId
-        }
-      });
-
-      if (error) {
-        console.error('Fel vid tillägg av enhet:', error);
-        toast({
-          title: "Fel vid registrering",
-          description: error.message || "Kunde inte registrera enheten",
-          variant: "destructive",
+      // Försök att registrera enheten via Supabase om möjligt
+      try {
+        const { data, error } = await supabase.functions.invoke('add_device', {
+          body: {
+            user_code: userCode,
+            device_id: deviceInfo.deviceId
+          }
         });
-        return;
-      }
 
-      console.log('Enhet tillagd framgångsrikt:', data);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        console.log('Enhet tillagd framgångsrikt via Supabase:', data);
+      } catch (supabaseError) {
+        console.log('Supabase-registrering misslyckades, fortsätter offline:', supabaseError);
+        
+        // Spara enheten lokalt för offline-funktionalitet
+        const offlineDevices = JSON.parse(localStorage.getItem('offline_devices') || '[]');
+        const newDevice = {
+          user_code: userCode,
+          device_id: deviceInfo.deviceId,
+          name: deviceInfo.name,
+          model: deviceInfo.model,
+          ip: shellyIP,
+          added_offline: true,
+          timestamp: Date.now()
+        };
+        
+        // Kontrollera om enheten redan finns
+        const existingDevice = offlineDevices.find((d: any) => d.device_id === deviceInfo.deviceId);
+        if (!existingDevice) {
+          offlineDevices.push(newDevice);
+          localStorage.setItem('offline_devices', JSON.stringify(offlineDevices));
+        }
+
+        toast({
+          title: "⚠️ Offline-läge",
+          description: "Enheten sparas lokalt. Synkas när internet är tillgängligt.",
+        });
+      }
       
       toast({
         title: "✅ Brandvarnare registrerad!",

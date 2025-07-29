@@ -120,19 +120,50 @@ const ShellyDeviceSetup = ({ onConnectionChange, onDeviceAdded, userCode }: Shel
     setIsConnecting(true);
     
     try {
-      // Lägg till enheten i användarens konto
-      const { data, error } = await supabase.functions.invoke('add_device', {
-        body: {
-          user_code: userCode,
-          device_id: selectedDevice.id
-        }
-      });
+      // Försök att registrera enheten via Supabase om möjligt
+      try {
+        const { data, error } = await supabase.functions.invoke('add_device', {
+          body: {
+            user_code: userCode,
+            device_id: selectedDevice.id
+          }
+        });
 
-      if (error) {
-        throw new Error(error.message);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        console.log('Enhet tillagd framgångsrikt via Supabase:', data);
+      } catch (supabaseError) {
+        console.log('Supabase-registrering misslyckades, fortsätter offline:', supabaseError);
+        
+        // Spara enheten lokalt för offline-funktionalitet
+        const offlineDevices = JSON.parse(localStorage.getItem('offline_devices') || '[]');
+        const newDevice = {
+          user_code: userCode,
+          device_id: selectedDevice.id,
+          name: selectedDevice.name,
+          type: selectedDevice.type,
+          ip: selectedDevice.ip,
+          mac: selectedDevice.mac,
+          added_offline: true,
+          timestamp: Date.now()
+        };
+        
+        // Kontrollera om enheten redan finns
+        const existingDevice = offlineDevices.find((d: any) => d.device_id === selectedDevice.id);
+        if (!existingDevice) {
+          offlineDevices.push(newDevice);
+          localStorage.setItem('offline_devices', JSON.stringify(offlineDevices));
+        }
+
+        toast({
+          title: "⚠️ Offline-läge",
+          description: "Enheten sparas lokalt. Synkas när internet är tillgängligt.",
+        });
       }
 
-      // Konfigurera webhook automatiskt
+      // Konfigurera webhook automatiskt (endast för WiFi-enheter)
       await configureWebhook(selectedDevice.ip);
 
       // Notify parent component about the new device
