@@ -6,10 +6,10 @@ const config: CapacitorConfig = {
   appName: 'ID-Bevakarna',
   webDir: 'dist',
   bundledWebRuntime: false,
-  server: {
-    url: 'https://03583b72-47c2-4afa-b1ad-aa0916f6dfda.lovableproject.com?forceHideBadge=true',
-    cleartext: true
-  },
+  // server: {
+  //   url: 'https://03583b72-47c2-4afa-b1ad-aa0916f6dfda.lovableproject.com?forceHideBadge=true',
+  //   cleartext: true
+  // },
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]
