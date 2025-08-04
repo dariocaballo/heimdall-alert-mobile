@@ -138,7 +138,7 @@ async function startSFMWebSocket(supabase: any, userCode: string): Promise<strin
     }
 
     // Use the official Shelly Fleet Manager WebSocket URL
-    const wsUrl = 'wss://shellyfl-t7-eu.shelly.cloud';
+    const wsUrl = 'wss://shellyfl-t7-eu.shelly.cloud/shelly';
     console.log('Connecting to SFM WebSocket:', wsUrl);
 
     // Create WebSocket connection
