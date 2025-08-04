@@ -161,6 +161,14 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
         description: "Testar alarmsystemet och push-notifikationer",
       });
 
+      // First, let's test if any edge function works by testing get_device_status
+      console.log('Testing get_device_status first...');
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('get_device_status', {
+        body: { user_code: userCode }
+      });
+      console.log('get_device_status response:', { statusData, statusError });
+
+      // Now try test_alarm
       const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
       console.log('Using deviceId:', testDeviceId);
 
