@@ -14,8 +14,9 @@ import AlarmScreen from "@/components/AlarmScreen";
 import SimpleCodeLogin from "@/components/SimpleCodeLogin";
 import DeviceList from "@/components/DeviceList";
 import CloudStatus from "@/components/FleetManager";
-import ShellyFleetManager from "@/components/ShellyFleetManager";
+import { ShellyFleetManager } from "@/components/ShellyFleetManager";
 import { ShellyPlusSmokeTest } from "@/components/ShellyPlusSmokeTest";
+import { ShellyDeviceManager } from "@/components/ShellyDeviceManager";
 import { useFirebaseToken } from "@/hooks/useFirebaseToken";
 
 interface AlarmData {
@@ -306,7 +307,8 @@ const Index = () => {
           <TabsContent value="fleet" className="mt-6">
             <div className="container mx-auto px-4 space-y-6">
               <ShellyFleetManager userCode={userCode} />
-              <ShellyPlusSmokeTest />
+              <ShellyDeviceManager userCode={userCode} />
+              <ShellyPlusSmokeTest userCode={userCode} />
               <CloudStatus userCode={userCode} />
             </div>
           </TabsContent>

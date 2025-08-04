@@ -16,7 +16,11 @@ interface ShellyDeviceStatus {
   last_seen: string;
 }
 
-export const ShellyPlusSmokeTest = () => {
+interface ShellyPlusSmokeTestProps {
+  userCode: string;
+}
+
+export const ShellyPlusSmokeTest = ({ userCode }: ShellyPlusSmokeTestProps) => {
   const [testing, setTesting] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<ShellyDeviceStatus | null>(null);
   const [lastTest, setLastTest] = useState<string>("");
