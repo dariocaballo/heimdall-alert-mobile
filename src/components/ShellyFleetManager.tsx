@@ -186,13 +186,13 @@ export const ShellyFleetManager = ({ userCode, onConnectionChange }: ShellyFleet
                 <Input
                   id="sfm-server"
                   type="url"
-                  placeholder="https://your-fleet-manager.com"
+                  placeholder="wss://shellyfl-t7-eu.shelly.cloud"
                   value={credentials.server}
                   onChange={(e) => setCredentials({ ...credentials, server: e.target.value })}
                   disabled={isConnecting}
                 />
                 <p className="text-xs text-muted-foreground">
-                  URL till din Shelly Fleet Manager-instans
+                  Standard: wss://shellyfl-t7-eu.shelly.cloud (eller din egen on-prem URL)
                 </p>
               </div>
               

@@ -137,8 +137,8 @@ async function startSFMWebSocket(supabase: any, userCode: string): Promise<strin
       throw new Error('No SFM credentials found for user');
     }
 
-    // Create WebSocket connection to SFM
-    const wsUrl = data.sfm_url.replace('http', 'ws') + '/rpc';
+    // Use the official Shelly Fleet Manager WebSocket URL
+    const wsUrl = 'wss://shellyfl-t7-eu.shelly.cloud';
     console.log('Connecting to SFM WebSocket:', wsUrl);
 
     // Create WebSocket connection
