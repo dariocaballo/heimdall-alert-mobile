@@ -153,14 +153,48 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
 
   const handleTestAlarm = async () => {
     try {
-      console.log('Creating local test alarm for user_code:', userCode);
+      console.log('🔥 Testing alarm creation for user_code:', userCode);
       
       toast({
-        title: "🔥 Skapar testalarm...",
-        description: "Edge functions ej tillgängliga - testar lokalt",
+        title: "🔥 Testar Supabase-anslutning...",
+        description: "Kontrollerar databasåtkomst steg för steg",
       });
 
-      // Since edge functions aren't working, create a local test alarm directly in database
+      // Step 1: Test basic connectivity
+      console.log('Step 1: Testing basic Supabase connectivity...');
+      const { data: testData, error: testError } = await supabase
+        .from('user_codes')
+        .select('user_code')
+        .limit(1);
+
+      if (testError) {
+        console.error('Step 1 FAILED - Basic connectivity error:', testError);
+        throw new Error(`Grundläggande anslutning misslyckades: ${testError.message}`);
+      }
+      
+      console.log('✅ Step 1 SUCCESS - Basic connectivity OK, found codes:', testData?.length || 0);
+
+      // Step 2: Test our specific user_code exists
+      console.log('Step 2: Testing user_code access for:', userCode);
+      const { data: userCodeData, error: userCodeError } = await supabase
+        .from('user_codes')
+        .select('user_code')
+        .eq('user_code', userCode);
+
+      if (userCodeError) {
+        console.error('Step 2 FAILED - User code check error:', userCodeError);
+        throw new Error(`Användarkodsverifiering misslyckades: ${userCodeError.message}`);
+      }
+      
+      if (!userCodeData || userCodeData.length === 0) {
+        console.error('Step 2 FAILED - User code not found:', userCode);
+        throw new Error(`Användarkod '${userCode}' finns inte i databasen`);
+      }
+      
+      console.log('✅ Step 2 SUCCESS - User code found:', userCodeData);
+
+      // Step 3: Test alarm table access
+      console.log('Step 3: Testing alarm table access...');
       const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
       
       const testAlarmData = {
@@ -181,22 +215,20 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
         timestamp: new Date().toISOString(),
       };
 
-      // Try to insert directly to database
-      const { data, error } = await supabase
+      const { data: alarmData, error: alarmError } = await supabase
         .from('alarms')
-        .insert(testAlarmData);
+        .insert(testAlarmData)
+        .select();
 
-      if (error) {
-        console.error('Error creating local test alarm:', error);
-        toast({
-          title: "❌ Kunde inte skapa testalarm",
-          description: `Databasfel: ${error.message}`,
-          variant: "destructive",
-        });
-        return;
+      if (alarmError) {
+        console.error('Step 3 FAILED - Alarm insert error:', alarmError);
+        throw new Error(`Alarm-skrivning misslyckades: ${alarmError.message}`);
       }
+      
+      console.log('✅ Step 3 SUCCESS - Alarm created:', alarmData);
 
-      // Update device status
+      // Step 4: Test device status update
+      console.log('Step 4: Testing device status update...');
       const statusUpdate = {
         device_id: testDeviceId,
         user_code: userCode,
@@ -213,16 +245,24 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
         },
       };
 
-      await supabase
+      const { data: statusData, error: statusError } = await supabase
         .from('device_status')
         .upsert(statusUpdate, { 
           onConflict: 'device_id',
           ignoreDuplicates: false 
-        });
+        })
+        .select();
+
+      if (statusError) {
+        console.error('Step 4 FAILED - Status update error:', statusError);
+        throw new Error(`Status-uppdatering misslyckades: ${statusError.message}`);
+      }
+      
+      console.log('✅ Step 4 SUCCESS - Status updated:', statusData);
 
       toast({
-        title: "✅ Testalarm skapat!",
-        description: `Lokalt testalarm för enhet ${testDeviceId}`,
+        title: "✅ Alla test lyckades!",
+        description: `Testalarm skapat för ${testDeviceId}`,
       });
       
       // Reload device statuses
@@ -231,10 +271,10 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       }, 2000);
 
     } catch (error) {
-      console.error('Error creating local test alarm:', error);
+      console.error('❌ TEST FAILED at some step:', error);
       toast({
-        title: "❌ Testalarm misslyckades",
-        description: `Fel: ${error}`,
+        title: "❌ Test misslyckades",
+        description: error instanceof Error ? error.message : `Okänt fel: ${error}`,
         variant: "destructive",
       });
     }
