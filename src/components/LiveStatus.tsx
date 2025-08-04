@@ -156,19 +156,6 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       console.log('Starting test alarm for user_code:', userCode);
       console.log('Available devices:', devices);
       
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Current session:', session);
-      
-      if (!session) {
-        toast({
-          title: "❌ Autentiseringsfel",
-          description: "Du måste vara inloggad för att skicka testalarm",
-          variant: "destructive",
-        });
-        return;
-      }
-      
       toast({
         title: "🔥 Skickar testalarm...",
         description: "Testar alarmsystemet och push-notifikationer",
