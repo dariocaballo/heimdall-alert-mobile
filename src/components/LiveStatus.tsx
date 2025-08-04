@@ -153,49 +153,88 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
 
   const handleTestAlarm = async () => {
     try {
-      console.log('Starting test alarm for user_code:', userCode);
+      console.log('Creating local test alarm for user_code:', userCode);
       
       toast({
-        title: "🔥 Testar anslutning...",
-        description: "Kontrollerar edge function-anslutning",
+        title: "🔥 Skapar testalarm...",
+        description: "Edge functions ej tillgängliga - testar lokalt",
       });
 
-      // Test direct fetch without auth header first
-      console.log('Testing simple fetch to simple_test without auth...');
+      // Since edge functions aren't working, create a local test alarm directly in database
+      const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
       
-      const simpleResponse = await fetch('https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/simple_test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      const testAlarmData = {
+        device_id: testDeviceId,
+        user_code: userCode,
+        smoke: true,
+        temp: 25,
+        battery: true,
+        raw_data: {
+          test: true,
+          deviceId: testDeviceId,
+          smoke: true,
+          temperature: 25,
+          battery: 85,
+          timestamp: new Date().toISOString()
         },
-        body: JSON.stringify({})
-      });
-      
-      console.log('Simple fetch response status:', simpleResponse.status);
-      
-      if (simpleResponse.ok) {
-        const simpleData = await simpleResponse.json();
-        console.log('Simple fetch data:', simpleData);
+        alarm_type: 'test',
+        timestamp: new Date().toISOString(),
+      };
+
+      // Try to insert directly to database
+      const { data, error } = await supabase
+        .from('alarms')
+        .insert(testAlarmData);
+
+      if (error) {
+        console.error('Error creating local test alarm:', error);
         toast({
-          title: "✅ Edge functions fungerar!",
-          description: "Anslutning till Supabase edge functions är OK",
+          title: "❌ Kunde inte skapa testalarm",
+          description: `Databasfel: ${error.message}`,
+          variant: "destructive",
         });
         return;
       }
 
-      
-      // If the simple response failed, show the error
+      // Update device status
+      const statusUpdate = {
+        device_id: testDeviceId,
+        user_code: userCode,
+        online: true,
+        smoke: true,
+        temperature: 25,
+        battery_level: 85,
+        signal_strength: -45,
+        last_seen: new Date().toISOString(),
+        raw_data: {
+          test: true,
+          deviceId: testDeviceId,
+          timestamp: new Date().toISOString()
+        },
+      };
+
+      await supabase
+        .from('device_status')
+        .upsert(statusUpdate, { 
+          onConflict: 'device_id',
+          ignoreDuplicates: false 
+        });
+
       toast({
-        title: "❌ Edge functions fungerar inte",
-        description: `HTTP Status: ${simpleResponse.status} - Edge functions är inte deployade eller tillgängliga`,
-        variant: "destructive",
+        title: "✅ Testalarm skapat!",
+        description: `Lokalt testalarm för enhet ${testDeviceId}`,
       });
+      
+      // Reload device statuses
+      setTimeout(() => {
+        loadDeviceStatuses();
+      }, 2000);
 
     } catch (error) {
-      console.error('Error testing connection:', error);
+      console.error('Error creating local test alarm:', error);
       toast({
-        title: "❌ Nätverksfel",
-        description: `Anslutningsfel: ${error}`,
+        title: "❌ Testalarm misslyckades",
+        description: `Fel: ${error}`,
         variant: "destructive",
       });
     }
