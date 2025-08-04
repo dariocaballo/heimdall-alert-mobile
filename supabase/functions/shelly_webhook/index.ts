@@ -224,46 +224,70 @@ async function sendPushNotification(supabase: any, userCode: string, notificatio
     }
 
     // Send FCM notifications via Firebase Admin SDK
-    const firebaseServerKey = Deno.env.get('FIREBASE_SERVER_KEY');
+    const projectId = Deno.env.get('FIREBASE_PROJECT_ID');
+    const privateKeyId = Deno.env.get('FIREBASE_PRIVATE_KEY_ID');
+    const privateKey = Deno.env.get('FIREBASE_PRIVATE_KEY');
+    const clientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL');
+    const clientId = Deno.env.get('FIREBASE_CLIENT_ID');
     
-    if (!firebaseServerKey) {
-      console.log('Firebase server key not configured');
+    if (!projectId || !privateKey || !clientEmail) {
+      console.log('Firebase Admin SDK credentials not configured');
       return;
     }
 
-    const fcmUrl = 'https://fcm.googleapis.com/fcm/send';
+    // Get OAuth2 access token
+    const accessToken = await getFirebaseAccessToken(privateKey, clientEmail, privateKeyId, clientId);
+    
+    if (!accessToken) {
+      console.log('Failed to get Firebase access token');
+      return;
+    }
+
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
     
     for (const tokenData of tokens) {
       const fcmPayload = {
-        to: tokenData.fcm_token,
-        notification: {
-          title: notification.title,
-          body: notification.body,
-          icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
-          badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
-          click_action: '/',
-          sound: 'default'
-        },
-        data: notification.data,
-        priority: 'high',
-        webpush: {
+        message: {
+          token: tokenData.fcm_token,
           notification: {
             title: notification.title,
             body: notification.body,
-            icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
-            badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
-            vibrate: [500, 300, 500, 300, 500],
-            requireInteraction: true,
-            actions: [
-              {
-                action: 'view',
-                title: 'Öppna ID-Bevakarna'
-              },
-              {
-                action: 'call',
-                title: 'Ring 112'
+            image: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png'
+          },
+          data: notification.data,
+          webpush: {
+            notification: {
+              title: notification.title,
+              body: notification.body,
+              icon: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+              badge: '/lovable-uploads/159221d4-8b15-48f1-bec1-aeb59779cbf0.png',
+              vibrate: [500, 300, 500, 300, 500],
+              requireInteraction: true,
+              actions: [
+                {
+                  action: 'view',
+                  title: 'Öppna ID-Bevakarna'
+                },
+                {
+                  action: 'call',
+                  title: 'Ring 112'
+                }
+              ]
+            }
+          },
+          android: {
+            notification: {
+              sound: 'default',
+              priority: 'high'
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1
               }
-            ]
+            }
           }
         }
       };
@@ -272,7 +296,7 @@ async function sendPushNotification(supabase: any, userCode: string, notificatio
         const response = await fetch(fcmUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `key=${firebaseServerKey}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(fcmPayload)
@@ -290,5 +314,87 @@ async function sendPushNotification(supabase: any, userCode: string, notificatio
     
   } catch (error) {
     console.error('Error sending push notification:', error);
+  }
+}
+
+async function getFirebaseAccessToken(privateKey: string, clientEmail: string, privateKeyId?: string, clientId?: string): Promise<string | null> {
+  try {
+    // JWT header
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT',
+      kid: privateKeyId
+    };
+
+    // JWT payload
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      iss: clientEmail,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now
+    };
+
+    // Base64url encode header and payload
+    const headerEncoded = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const payloadEncoded = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+    // Create signature using RS256
+    const textEncoder = new TextEncoder();
+    const data = textEncoder.encode(`${headerEncoded}.${payloadEncoded}`);
+    
+    // Import private key
+    const keyData = privateKey.replace(/\\n/g, '\n');
+    const pemHeader = '-----BEGIN PRIVATE KEY-----';
+    const pemFooter = '-----END PRIVATE KEY-----';
+    const pemContents = keyData.replace(pemHeader, '').replace(pemFooter, '').replace(/\s/g, '');
+    
+    const keyBuffer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+    
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      keyBuffer,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    );
+
+    // Sign the data
+    const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, data);
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    // Create JWT
+    const jwt = `${headerEncoded}.${payloadEncoded}.${signatureBase64}`;
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      console.error('Failed to get access token:', await tokenResponse.text());
+      return null;
+    }
+
+    const tokenData = await tokenResponse.json();
+    return tokenData.access_token;
+    
+  } catch (error) {
+    console.error('Error getting Firebase access token:', error);
+    return null;
   }
 }
