@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.verify_user_code]
 verify_jwt = false
+
+[functions.test_alarm]
+verify_jwt = false
+
+[functions.shelly_fleet_manager]
+verify_jwt = false
