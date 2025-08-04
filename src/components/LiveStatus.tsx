@@ -151,6 +151,54 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
     }
   };
 
+  const handleTestAlarm = async () => {
+    try {
+      toast({
+        title: "🔥 Skickar testalarm...",
+        description: "Testar alarmsystemet och push-notifikationer",
+      });
+
+      const { data, error } = await supabase.functions.invoke('test_alarm', {
+        body: { user_code: userCode }
+      });
+
+      if (error) {
+        console.error('Error sending test alarm:', error);
+        toast({
+          title: "❌ Testalarm misslyckades",
+          description: "Kunde inte skicka testalarm. Kontrollera nätverket.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "✅ Testalarm skickat!",
+          description: "Kontrollera om du fick en push-notifikation.",
+        });
+        
+        // Reload device statuses to show the test alarm
+        setTimeout(() => {
+          loadDeviceStatuses();
+        }, 2000);
+      } else {
+        toast({
+          title: "⚠️ Testalarm delvis lyckades",
+          description: data?.message || "Testet genomfördes men något gick fel.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending test alarm:', error);
+      toast({
+        title: "❌ Nätverksfel",
+        description: "Kunde inte ansluta till servern",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusColor = (device: DeviceStatus) => {
     if (device.smoke) return 'bg-red-500';
     if (!device.online) return 'bg-gray-500';
@@ -226,16 +274,27 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
                 )}
               </CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadDeviceStatuses}
-              className="text-blue-600 hover:text-blue-700"
-              disabled={isLoading}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Uppdatera
-            </Button>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadDeviceStatuses}
+                className="text-blue-600 hover:text-blue-700"
+                disabled={isLoading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Uppdatera
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleTestAlarm}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Testa Alarm
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
