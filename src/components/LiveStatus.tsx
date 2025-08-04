@@ -154,78 +154,46 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
   const handleTestAlarm = async () => {
     try {
       console.log('Starting test alarm for user_code:', userCode);
-      console.log('Available devices:', devices);
       
       toast({
-        title: "🔥 Skickar testalarm...",
-        description: "Testar alarmsystemet och push-notifikationer",
+        title: "🔥 Testar anslutning...",
+        description: "Kontrollerar edge function-anslutning",
       });
 
-      // First, let's test if any edge function works by testing get_device_status
-      console.log('Testing get_device_status first...');
-      const { data: statusData, error: statusError } = await supabase.functions.invoke('get_device_status', {
-        body: { user_code: userCode }
+      // Test direct fetch to edge function
+      console.log('Testing direct fetch to simple_test...');
+      
+      const directResponse = await fetch('https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/simple_test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93Z2toa3hzYWVpemd3eGViYXJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5MTA0NTUsImV4cCI6MjA2NzQ4NjQ1NX0.jBpM_u60mg0k6x5gGwFvru87fqJdRFGSWyTGMO2wM0s`
+        },
+        body: JSON.stringify({})
       });
-      console.log('get_device_status response:', { statusData, statusError });
+      
+      console.log('Direct fetch response status:', directResponse.status);
+      const directData = await directResponse.json();
+      console.log('Direct fetch data:', directData);
 
-      // Test the simple_test function first
-      console.log('Testing simple_test function...');
-      const { data: simpleData, error: simpleError } = await supabase.functions.invoke('simple_test');
-      console.log('simple_test response:', { simpleData, simpleError });
-
-      if (simpleError) {
+      if (directResponse.ok) {
         toast({
-          title: "❌ Grundläggande funktionstest misslyckades",
-          description: `Fel: ${simpleError.message}`,
-          variant: "destructive",
+          title: "✅ Anslutningstest lyckades!",
+          description: `Edge functions fungerar! Status: ${directResponse.status}`,
         });
-        return;
-      }
-
-      // If simple test works, try test_alarm
-      const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
-      const { data, error } = await supabase.functions.invoke('test_alarm', {
-        body: { 
-          user_code: userCode,
-          deviceId: testDeviceId
-        }
-      });
-
-      console.log('Test alarm response:', { data, error });
-
-      if (error) {
-        console.error('Error sending test alarm:', error);
-        toast({
-          title: "❌ Testalarm misslyckades",
-          description: `Fel: ${error.message || 'Okänt fel'}`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data?.success) {
-        toast({
-          title: "✅ Testalarm skickat!",
-          description: "Kontrollera om du fick en push-notifikation.",
-        });
-        
-        // Reload device statuses to show the test alarm
-        setTimeout(() => {
-          loadDeviceStatuses();
-        }, 2000);
       } else {
-        console.log('Unexpected response:', data);
         toast({
-          title: "⚠️ Testalarm delvis lyckades",
-          description: data?.message || "Testet genomfördes men något gick fel.",
+          title: "❌ Anslutningstest misslyckades",
+          description: `HTTP Status: ${directResponse.status}`,
           variant: "destructive",
         });
       }
+
     } catch (error) {
-      console.error('Error sending test alarm:', error);
+      console.error('Error testing connection:', error);
       toast({
         title: "❌ Nätverksfel",
-        description: `Kunde inte ansluta till servern: ${error}`,
+        description: `Anslutningsfel: ${error}`,
         variant: "destructive",
       });
     }
