@@ -160,34 +160,36 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
         description: "Kontrollerar edge function-anslutning",
       });
 
-      // Test direct fetch to edge function
-      console.log('Testing direct fetch to simple_test...');
+      // Test direct fetch without auth header first
+      console.log('Testing simple fetch to simple_test without auth...');
       
-      const directResponse = await fetch('https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/simple_test', {
+      const simpleResponse = await fetch('https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/simple_test', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93Z2toa3hzYWVpemd3eGViYXJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5MTA0NTUsImV4cCI6MjA2NzQ4NjQ1NX0.jBpM_u60mg0k6x5gGwFvru87fqJdRFGSWyTGMO2wM0s`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
       });
       
-      console.log('Direct fetch response status:', directResponse.status);
-      const directData = await directResponse.json();
-      console.log('Direct fetch data:', directData);
-
-      if (directResponse.ok) {
+      console.log('Simple fetch response status:', simpleResponse.status);
+      
+      if (simpleResponse.ok) {
+        const simpleData = await simpleResponse.json();
+        console.log('Simple fetch data:', simpleData);
         toast({
-          title: "✅ Anslutningstest lyckades!",
-          description: `Edge functions fungerar! Status: ${directResponse.status}`,
+          title: "✅ Edge functions fungerar!",
+          description: "Anslutning till Supabase edge functions är OK",
         });
-      } else {
-        toast({
-          title: "❌ Anslutningstest misslyckades",
-          description: `HTTP Status: ${directResponse.status}`,
-          variant: "destructive",
-        });
+        return;
       }
+
+      
+      // If the simple response failed, show the error
+      toast({
+        title: "❌ Edge functions fungerar inte",
+        description: `HTTP Status: ${simpleResponse.status} - Edge functions är inte deployade eller tillgängliga`,
+        variant: "destructive",
+      });
 
     } catch (error) {
       console.error('Error testing connection:', error);
