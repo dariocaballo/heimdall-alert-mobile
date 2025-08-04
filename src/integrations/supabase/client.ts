@@ -8,10 +8,34 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Capacitor-compatible storage
+const createCapacitorStorage = () => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return {
+      getItem: (key: string) => window.localStorage.getItem(key),
+      setItem: (key: string, value: string) => window.localStorage.setItem(key, value),
+      removeItem: (key: string) => window.localStorage.removeItem(key),
+    };
+  }
+  // Fallback for SSR or other environments
+  return {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: createCapacitorStorage(),
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false, // Important for mobile apps
+    flowType: 'implicit'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'capacitor-js'
+    }
   }
 });
