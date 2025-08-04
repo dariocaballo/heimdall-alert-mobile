@@ -168,10 +168,22 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       });
       console.log('get_device_status response:', { statusData, statusError });
 
-      // Now try test_alarm
-      const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
-      console.log('Using deviceId:', testDeviceId);
+      // Test the simple_test function first
+      console.log('Testing simple_test function...');
+      const { data: simpleData, error: simpleError } = await supabase.functions.invoke('simple_test');
+      console.log('simple_test response:', { simpleData, simpleError });
 
+      if (simpleError) {
+        toast({
+          title: "❌ Grundläggande funktionstest misslyckades",
+          description: `Fel: ${simpleError.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If simple test works, try test_alarm
+      const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
       const { data, error } = await supabase.functions.invoke('test_alarm', {
         body: { 
           user_code: userCode,
