@@ -15,6 +15,16 @@ interface ShellyData {
   signal?: number;
   timestamp?: string;
   raw_data?: any;
+  // Shelly Plus Smoke specifika fält
+  alarm?: boolean;
+  test?: boolean;
+  battery_low?: boolean;
+  temp?: {
+    tC?: number;
+    tF?: number;
+  };
+  battery_percent?: number;
+  event_type?: string; // smoke.alarm, smoke.battery_low, smoke.report
 }
 
 serve(async (req) => {
@@ -85,14 +95,14 @@ serve(async (req) => {
       deviceOwner = { user_code: userCodes[0].user_code };
     }
 
-    // Uppdatera device status (upsert)
+    // Förbättrad Shelly Plus Smoke statushantering
     const statusUpdate = {
       device_id: data.deviceId,
       user_code: deviceOwner.user_code,
       online: data.online ?? true,
-      smoke: data.smoke ?? false,
-      temperature: data.temperature,
-      battery_level: data.battery,
+      smoke: data.smoke ?? data.alarm ?? false,
+      temperature: data.temperature ?? data.temp?.tC,
+      battery_level: data.battery ?? data.battery_percent,
       signal_strength: data.signal,
       last_seen: data.timestamp ? new Date(data.timestamp) : new Date(),
       raw_data: data.raw_data || data,
@@ -113,16 +123,20 @@ serve(async (req) => {
       );
     }
 
-    // Om det är ett larm (rök upptäckt), skapa alarm-record
-    if (data.smoke === true) {
+    // Hantera olika typer av Shelly Plus Smoke events
+    const isAlarm = data.smoke === true || data.alarm === true;
+    const isTest = data.test === true;
+    const isBatteryLow = data.battery_low === true || (data.battery && data.battery < 20);
+
+    if (isAlarm || isTest) {
       const alarmData = {
         device_id: data.deviceId,
         user_code: deviceOwner.user_code,
-        smoke: true,
-        temp: data.temperature,
-        battery: data.battery ? data.battery > 20 : null,
+        smoke: isAlarm,
+        temp: data.temperature ?? data.temp?.tC,
+        battery: data.battery_percent ? data.battery_percent > 20 : (data.battery ? data.battery > 20 : null),
         raw_data: data.raw_data || data,
-        alarm_type: 'smoke',
+        alarm_type: isTest ? 'test' : 'smoke',
         timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
       };
 
@@ -133,19 +147,47 @@ serve(async (req) => {
       if (alarmError) {
         console.error('Error creating alarm:', alarmError);
       } else {
-        console.log('Smoke alarm created for device:', data.deviceId);
+        console.log(`${isTest ? 'Test' : 'Smoke'} alarm created for device:`, data.deviceId);
         
-        // Skicka push notification till alla enheter med denna user_code
-        await sendPushNotification(supabase, deviceOwner.user_code, {
-          title: '🚨 BRANDLARM!',
-          body: `Rök upptäckt på ${data.deviceId}`,
-          data: {
-            type: 'fire_alarm',
-            deviceId: data.deviceId,
-            timestamp: new Date().toISOString(),
-          }
-        });
+        // Skicka olika notifikationer beroende på typ
+        if (isTest) {
+          await sendPushNotification(supabase, deviceOwner.user_code, {
+            title: '✅ Testalarm',
+            body: `Brandvarnare ${data.deviceId} fungerar korrekt`,
+            data: {
+              type: 'test_alarm',
+              deviceId: data.deviceId,
+              timestamp: new Date().toISOString(),
+            }
+          });
+        } else {
+          // Verkligt brandlarm
+          await sendPushNotification(supabase, deviceOwner.user_code, {
+            title: '🚨 BRANDLARM!',
+            body: `RÖK UPPTÄCKT! Enhet: ${data.deviceId}`,
+            data: {
+              type: 'fire_alarm',
+              deviceId: data.deviceId,
+              temperature: data.temperature ?? data.temp?.tC,
+              timestamp: new Date().toISOString(),
+            }
+          });
+        }
       }
+    }
+
+    // Hantera låg batterinivå separat
+    if (isBatteryLow && !isAlarm) {
+      await sendPushNotification(supabase, deviceOwner.user_code, {
+        title: '🔋 Låg batterinivå',
+        body: `Brandvarnare ${data.deviceId} behöver batteribyte`,
+        data: {
+          type: 'battery_low',
+          deviceId: data.deviceId,
+          battery_level: data.battery_percent ?? data.battery,
+          timestamp: new Date().toISOString(),
+        }
+      });
     }
 
     console.log('Successfully processed Shelly data for device:', data.deviceId);

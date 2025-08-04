@@ -70,11 +70,11 @@ export const ShellyWiFiConfigurator = ({ shellyIP, onConfigurationComplete }: Sh
 
       setConfigurationProgress(50);
 
-      // Steg 2: Konfigurera larm-webhook för Shelly Plus Smoke
+      // Steg 2: Konfigurera flera webhooks för Shelly Plus Smoke
       setConfigurationStep("Konfigurerar larmfunktion...");
       
-      // Använd Shelly Plus API för att konfigurera webhook
-      const webhookConfigResponse = await fetch(`http://${shellyIP}/rpc/Webhook.SetConfig`, {
+      // Webhook för röklarm
+      const smokeWebhookResponse = await fetch(`http://${shellyIP}/rpc/Webhook.SetConfig`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export const ShellyWiFiConfigurator = ({ shellyIP, onConfigurationComplete }: Sh
           config: {
             name: "smoke_alarm_webhook",
             enable: true,
-            event: "smoke.on",
+            event: "smoke.alarm",
             urls: ["https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/shelly_webhook"],
             ssl_ca: "*",
             active_between: []
@@ -92,12 +92,50 @@ export const ShellyWiFiConfigurator = ({ shellyIP, onConfigurationComplete }: Sh
         })
       });
 
-      if (!webhookConfigResponse.ok) {
-        throw new Error(`Webhook-konfiguration misslyckades: ${webhookConfigResponse.status}`);
+      if (!smokeWebhookResponse.ok) {
+        throw new Error(`Smoke webhook konfiguration misslyckades: ${smokeWebhookResponse.status}`);
       }
 
-      const webhookResult = await webhookConfigResponse.json();
-      console.log('Webhook config result:', webhookResult);
+      // Webhook för batteristatus
+      const batteryWebhookResponse = await fetch(`http://${shellyIP}/rpc/Webhook.SetConfig`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: 2,
+          config: {
+            name: "battery_status_webhook",
+            enable: true,
+            event: "smoke.battery_low",
+            urls: ["https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/shelly_webhook"],
+            ssl_ca: "*",
+            active_between: []
+          }
+        })
+      });
+
+      // Webhook för enhetsheartbeat (status updates)
+      const statusWebhookResponse = await fetch(`http://${shellyIP}/rpc/Webhook.SetConfig`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: 3,
+          config: {
+            name: "device_status_webhook",
+            enable: true,
+            event: "smoke.report",
+            urls: ["https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/shelly_webhook"],
+            ssl_ca: "*",
+            active_between: [],
+            condition: "true" // Skicka regelbundna statusuppdateringar
+          }
+        })
+      });
+
+      console.log('All webhooks configured successfully');
 
       setConfigurationProgress(75);
 
