@@ -159,7 +159,10 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       });
 
       const { data, error } = await supabase.functions.invoke('test_alarm', {
-        body: { user_code: userCode }
+        body: { 
+          user_code: userCode,
+          deviceId: devices[0] || 'test-device-001'
+        }
       });
 
       if (error) {
