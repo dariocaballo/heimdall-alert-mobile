@@ -153,23 +153,31 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
 
   const handleTestAlarm = async () => {
     try {
+      console.log('Starting test alarm for user_code:', userCode);
+      console.log('Available devices:', devices);
+      
       toast({
         title: "🔥 Skickar testalarm...",
         description: "Testar alarmsystemet och push-notifikationer",
       });
 
+      const testDeviceId = devices.length > 0 ? devices[0] : 'test-device-001';
+      console.log('Using deviceId:', testDeviceId);
+
       const { data, error } = await supabase.functions.invoke('test_alarm', {
         body: { 
           user_code: userCode,
-          deviceId: devices[0] || 'test-device-001'
+          deviceId: testDeviceId
         }
       });
+
+      console.log('Test alarm response:', { data, error });
 
       if (error) {
         console.error('Error sending test alarm:', error);
         toast({
           title: "❌ Testalarm misslyckades",
-          description: "Kunde inte skicka testalarm. Kontrollera nätverket.",
+          description: `Fel: ${error.message || 'Okänt fel'}`,
           variant: "destructive",
         });
         return;
@@ -186,6 +194,7 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
           loadDeviceStatuses();
         }, 2000);
       } else {
+        console.log('Unexpected response:', data);
         toast({
           title: "⚠️ Testalarm delvis lyckades",
           description: data?.message || "Testet genomfördes men något gick fel.",
@@ -196,7 +205,7 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
       console.error('Error sending test alarm:', error);
       toast({
         title: "❌ Nätverksfel",
-        description: "Kunde inte ansluta till servern",
+        description: `Kunde inte ansluta till servern: ${error}`,
         variant: "destructive",
       });
     }
