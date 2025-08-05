@@ -154,22 +154,47 @@ const LiveStatus = ({ userCode, devices }: LiveStatusProps) => {
   const handleTestAlarm = async () => {
     try {
       console.log('🔥 Testing alarm creation for user_code:', userCode);
+      console.log('🌐 Browser info:', navigator.userAgent);
+      console.log('🔧 Supabase URL:', 'https://owgkhkxsaeizgwxebarh.supabase.co');
       
       toast({
-        title: "🔥 Testar Supabase-anslutning...",
-        description: "Kontrollerar databasåtkomst steg för steg",
+        title: "🔥 Testar nätverksanslutning...",
+        description: "Kontrollerar direkt fetch först, sedan Supabase klient",
       });
 
-      // Step 1: Test basic connectivity
-      console.log('Step 1: Testing basic Supabase connectivity...');
+      // Step 0: Test direct network connection first
+      console.log('Step 0: Testing direct network access to Supabase...');
+      try {
+        const directResponse = await fetch('https://owgkhkxsaeizgwxebarh.supabase.co/rest/v1/', {
+          method: 'GET',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93Z2toa3hzYWVpemd3eGViYXJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5MTA0NTUsImV4cCI6MjA2NzQ4NjQ1NX0.jBpM_u60mg0k6x5gGwFvru87fqJdRFGSWyTGMO2wM0s',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('✅ Step 0 SUCCESS - Direct fetch response status:', directResponse.status);
+        
+        toast({
+          title: "✅ Direkt nätverksåtkomst fungerar",
+          description: "Testar nu Supabase klient...",
+        });
+        
+      } catch (directError) {
+        console.error('❌ Step 0 FAILED - Direct fetch error:', directError);
+        throw new Error(`Direkt nätverksåtkomst misslyckades: ${directError.message}. Detta indikerar CORS-problem, browser extension som blockerar, eller nätverksproblem.`);
+      }
+
+      // Step 1: Test basic connectivity with Supabase client
+      console.log('Step 1: Testing Supabase client connectivity...');
       const { data: testData, error: testError } = await supabase
         .from('user_codes')
         .select('user_code')
         .limit(1);
 
       if (testError) {
-        console.error('Step 1 FAILED - Basic connectivity error:', testError);
-        throw new Error(`Grundläggande anslutning misslyckades: ${testError.message}`);
+        console.error('Step 1 FAILED - Supabase client error:', testError);
+        throw new Error(`Supabase klient misslyckades: ${testError.message}. Direkt fetch fungerade men klient inte - konfigurationsproblem.`);
       }
       
       console.log('✅ Step 1 SUCCESS - Basic connectivity OK, found codes:', testData?.length || 0);
