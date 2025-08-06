@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, AlertTriangle, Wifi, Battery, Thermometer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ShellyDeviceStatus {
   deviceId: string;
@@ -130,44 +131,37 @@ export const ShellyPlusSmokeTest = ({ userCode }: ShellyPlusSmokeTestProps) => {
     const testDeviceId = deviceStatus?.deviceId || 'test_device_' + Date.now();
 
     try {
-      // Använd Supabase edge function istället
-      const response = await fetch('https://owgkhkxsaeizgwxebarh.supabase.co/functions/v1/test_alarm', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase_token') || ''}`
-        },
-        body: JSON.stringify({
+      // Använd Supabase klient istället för direkt fetch
+      const { data: result, error: functionError } = await supabase.functions.invoke('test_alarm', {
+        body: {
           deviceId: testDeviceId,
           userCode: userCode,
           smoke: true,
           temperature: deviceStatus?.temperature || 25,
           battery: deviceStatus?.battery_level || 85
-        })
+        }
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        toast({
-          title: "✅ Testalarm skickat",
-          description: "Du borde få en notifikation inom kort",
-        });
-        setLastTest(new Date().toLocaleString('sv-SE'));
-        
-        // Uppdatera device status med test data
-        setDeviceStatus({
-          deviceId: testDeviceId,
-          online: true,
-          smoke: true,
-          temperature: deviceStatus?.temperature || 25,
-          battery_level: deviceStatus?.battery_level || 85,
-          signal_strength: -45,
-          last_seen: new Date().toISOString()
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Okänt fel');
+      if (functionError) {
+        throw new Error(`Supabase function error: ${functionError.message}`);
       }
+      
+      toast({
+        title: "✅ Testalarm skickat",
+        description: "Du borde få en notifikation inom kort",
+      });
+      setLastTest(new Date().toLocaleString('sv-SE'));
+      
+      // Uppdatera device status med test data
+      setDeviceStatus({
+        deviceId: testDeviceId,
+        online: true,
+        smoke: true,
+        temperature: deviceStatus?.temperature || 25,
+        battery_level: deviceStatus?.battery_level || 85,
+        signal_strength: -45,
+        last_seen: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Test alarm failed:', error);
       toast({

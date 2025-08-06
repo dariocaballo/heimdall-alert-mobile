@@ -17,6 +17,7 @@ import CloudStatus from "@/components/FleetManager";
 import { ShellyFleetManager } from "@/components/ShellyFleetManager";
 import { ShellyPlusSmokeTest } from "@/components/ShellyPlusSmokeTest";
 import { ShellyDeviceManager } from "@/components/ShellyDeviceManager";
+import TestConnection from "@/components/TestConnection";
 import { useFirebaseToken } from "@/hooks/useFirebaseToken";
 
 interface AlarmData {
@@ -306,6 +307,7 @@ const Index = () => {
 
           <TabsContent value="fleet" className="mt-6">
             <div className="container mx-auto px-4 space-y-6">
+              <TestConnection />
               <ShellyFleetManager userCode={userCode} />
               <ShellyDeviceManager userCode={userCode} />
               <ShellyPlusSmokeTest userCode={userCode} />
