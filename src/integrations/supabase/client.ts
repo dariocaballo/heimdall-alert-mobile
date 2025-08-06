@@ -8,42 +8,12 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-// Detect if running in browser or mobile app
-const isBrowser = typeof window !== 'undefined' && !(window as any).Capacitor;
-
-// Web-compatible storage
-const createWebStorage = () => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return {
-      getItem: (key: string) => window.localStorage.getItem(key),
-      setItem: (key: string, value: string) => window.localStorage.setItem(key, value),
-      removeItem: (key: string) => window.localStorage.removeItem(key),
-    };
-  }
-  // Fallback for SSR
-  return {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-  };
-};
-
-// Create client with appropriate configuration
+// Create client with standard web configuration
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: createWebStorage(),
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: isBrowser, // Enable for web, disable for mobile
-    flowType: 'implicit'
-  },
-  global: {
-    headers: isBrowser 
-      ? {
-          'x-client-info': 'supabase-js-web'
-        }
-      : {
-          'x-client-info': 'capacitor-js'
-        }
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
 });
