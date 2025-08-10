@@ -136,6 +136,7 @@ export const ShellyPlusSmokeTest = ({ userCode }: ShellyPlusSmokeTestProps) => {
         body: {
           deviceId: testDeviceId,
           userCode: userCode,
+          user_code: userCode,
           smoke: true,
           temperature: deviceStatus?.temperature || 25,
           battery: deviceStatus?.battery_level || 85

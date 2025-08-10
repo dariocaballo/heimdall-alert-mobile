@@ -19,15 +19,16 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     console.log('Request body:', body);
 
-    const { user_code, deviceId } = body;
-    console.log('Received user_code:', user_code, 'deviceId:', deviceId);
+    const { user_code, userCode, deviceId } = body;
+    const resolvedUserCode = user_code ?? userCode ?? null;
+    console.log('Received user_code:', resolvedUserCode, 'deviceId:', deviceId);
 
     // Simple success response for now
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Test alarm function is working',
-        userCode: user_code,
+        userCode: resolvedUserCode,
         deviceId: deviceId,
         timestamp: new Date().toISOString()
       }),
