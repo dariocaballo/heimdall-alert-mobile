@@ -30,12 +30,28 @@ serve(async (req) => {
 
     const { action, credentials, userCode } = await req.json();
 
+    // Normalize incoming credentials shape (client may send {server, username, password})
+    const normalizedCreds: SFMCredentials | null = credentials
+      ? {
+          username: credentials.username,
+          password: credentials.password,
+          url: credentials.server ?? credentials.url,
+        }
+      : null;
+
     if (action === 'authenticate') {
-      const tokens = await authenticateWithSFM(credentials);
+      if (!normalizedCreds?.url) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing SFM server URL' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const tokens = await authenticateWithSFM(normalizedCreds);
       
       if (tokens) {
         // Store tokens in database for the user
-        await storeTokensForUser(supabase, userCode, tokens, credentials.url);
+        await storeTokensForUser(supabase, userCode, tokens, normalizedCreds.url);
         
         return new Response(
           JSON.stringify({ success: true, tokens }),
@@ -59,6 +75,26 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'status') {
+      const { data: cred, error: credError } = await supabase
+        .from('sfm_credentials')
+        .select('sfm_url')
+        .eq('user_code', userCode)
+        .maybeSingle();
+
+      if (credError) {
+        return new Response(
+          JSON.stringify({ success: false, error: credError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, connected: !!cred, sfm_url: cred?.sfm_url ?? null }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -75,8 +111,18 @@ serve(async (req) => {
 
 async function authenticateWithSFM(credentials: SFMCredentials): Promise<SFMTokens | null> {
   try {
-    const authUrl = `http${credentials.url.substring(2)}/rpc/user.authenticate?username=${credentials.username}&password=${credentials.password}`;
-    
+    // Build robust HTTP(S) auth URL based on provided WS/HTTP URL
+    let base: URL;
+    try {
+      base = new URL(credentials.url);
+    } catch (_) {
+      console.error('Invalid SFM URL provided:', credentials.url);
+      return null;
+    }
+    const protocol = base.protocol === 'ws:' ? 'http:' : base.protocol === 'wss:' ? 'https:' : base.protocol;
+    const authBase = `${protocol}//${base.host}`;
+    const authUrl = `${authBase}/rpc/user.authenticate?username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}`;
+
     console.log('Authenticating with SFM:', authUrl);
     
     const response = await fetch(authUrl, {
@@ -137,8 +183,10 @@ async function startSFMWebSocket(supabase: any, userCode: string): Promise<strin
       throw new Error('No SFM credentials found for user');
     }
 
-    // Use the official Shelly Fleet Manager WebSocket URL
-    const wsUrl = 'wss://shellyfl-t7-eu.shelly.cloud/shelly';
+    // Resolve WebSocket URL from stored credentials or fallback
+    let wsUrl: string = data.sfm_url || 'wss://shellyfl-t7-eu.shelly.cloud/shelly';
+    if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace('https://', 'wss://');
+    if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace('http://', 'ws://');
     console.log('Connecting to SFM WebSocket:', wsUrl);
 
     // Create WebSocket connection
@@ -233,15 +281,16 @@ async function processSFMEvent(supabase: any, userCode: string, message: any) {
       if (event.component === 'smoke' && event.event === 'alarm') {
         console.log('Smoke alarm detected from SFM:', src, event);
         
-        // Insert alarm into database
+        // Insert alarm into database with correct schema
         const { error } = await supabase
           .from('alarms')
           .insert({
-            id: src, // device ID
+            device_id: src,
             user_code: userCode,
             timestamp: new Date().toISOString(),
-            smoke_detected: true,
-            source: 'SFM'
+            smoke: true,
+            alarm_type: 'smoke',
+            raw_data: message
           });
 
         if (error) {
@@ -260,12 +309,13 @@ async function processSFMEvent(supabase: any, userCode: string, message: any) {
       // Update device status
       const deviceStatus = {
         device_id: src,
+        user_code: userCode,
         last_seen: new Date().toISOString(),
-        battery: status.sys?.battery?.percent,
-        temperature: status.temperature_0?.tC,
-        smoke: status.smoke_0?.alarm,
+        battery_level: status?.sys?.battery?.percent ?? null,
+        temperature: status?.temperature_0?.tC ?? null,
+        smoke: status?.smoke_0?.alarm ?? false,
         online: true,
-        source: 'SFM'
+        raw_data: status
       };
 
       const { error } = await supabase
@@ -287,7 +337,7 @@ async function sendSmokeNotification(supabase: any, userCode: string, deviceId: 
     // Get FCM tokens for user
     const { data: tokens, error } = await supabase
       .from('fcm_tokens')
-      .select('token')
+      .select('fcm_token')
       .eq('user_code', userCode);
 
     if (error || !tokens?.length) {
@@ -297,7 +347,7 @@ async function sendSmokeNotification(supabase: any, userCode: string, deviceId: 
 
     // Send notification via FCM (simplified)
     for (const tokenData of tokens) {
-      console.log('Sending smoke notification to token:', tokenData.token);
+      console.log('Sending smoke notification to token:', tokenData.fcm_token);
       // Implementation would call FCM API here
     }
 
